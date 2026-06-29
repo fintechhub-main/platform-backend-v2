@@ -26,6 +26,8 @@ from app.models.ai_settings import AISettings
 from app.models.telegram_source import TelegramSource
 from app.models.integration_settings import IntegrationSettings
 from app.models.general_settings import GeneralSettings
+from app.models.event import Event, EventRegistration
+from app.models.holiday import Holiday
 
 __all__ = [
     "User", "Course", "Group", "GroupStudent",

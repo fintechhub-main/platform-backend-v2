@@ -13,7 +13,7 @@ from app.routers import (
     bookings, certificates, rooms, staff, leads, payments, coins, exams,
     homework, dashboard, permissions, discounts, group_progress, materials,
     branches, practicum, logs, reports, ai, telegram_sources, integrations,
-    general_settings,
+    general_settings, events, holidays,
 )
 from app.utils.daily_attendance import run_daily_attendance
 
@@ -91,6 +91,8 @@ app.include_router(ai.router,                  prefix="/api/v1")
 app.include_router(telegram_sources.router,    prefix="/api/v1")
 app.include_router(integrations.router,        prefix="/api/v1")
 app.include_router(general_settings.router,    prefix="/api/v1")
+app.include_router(events.router,              prefix="/api/v1")
+app.include_router(holidays.router,            prefix="/api/v1")
 
 
 @app.get("/")
