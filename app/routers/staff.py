@@ -55,15 +55,13 @@ async def list_staff(
     if role:
         q = q.where(User.role == UserRole(role))
     else:
-        q = q.where(User.role.in_([UserRole.teacher, UserRole.staff]))
+        q = q.where(User.role.in_([UserRole.teacher, UserRole.assistant_teacher, UserRole.staff]))
 
     if status:
         q = q.where(StaffProfile.status == StaffStatus(status))
 
     if branch_id:
-        q = q.where(User.id.in_(
-            select(Group.teacher_id).where(Group.branch_id == uuid.UUID(branch_id)).distinct()
-        ))
+        q = q.where(User.branch_id == uuid.UUID(branch_id))
 
     rows = (await db.execute(q)).all()
     return [StaffOut.model_validate(_build_out(u, p)) for u, p in rows]
