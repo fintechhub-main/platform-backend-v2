@@ -50,6 +50,7 @@ async def list_users(
         branch_uuid = uuid.UUID(branch_id)
         if role == UserRole.student:
             q = q.where(
+                (User.branch_id == branch_uuid) |
                 User.id.in_(
                     select(GroupStudent.student_id)
                     .join(Group, Group.id == GroupStudent.group_id)
@@ -58,6 +59,7 @@ async def list_users(
             )
         elif role == UserRole.teacher:
             q = q.where(
+                (User.branch_id == branch_uuid) |
                 User.id.in_(
                     select(Group.teacher_id).where(Group.branch_id == branch_uuid)
                 )
@@ -73,7 +75,10 @@ async def list_users(
                 .where(Group.branch_id == branch_uuid, Group.teacher_id.isnot(None))
             )
             combined = union(student_subq, teacher_subq).subquery()
-            q = q.where(User.id.in_(select(combined.c.id)))
+            q = q.where(
+                (User.branch_id == branch_uuid) |
+                User.id.in_(select(combined.c.id))
+            )
     q = q.offset(skip).limit(limit)
     result = await db.execute(q)
     return result.scalars().all()
@@ -83,21 +88,27 @@ async def list_users(
 async def create_user(data: UserCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
     existing = await db.execute(select(User).where(User.phone == data.phone))
     if existing.scalar_one_or_none():
-        raise HTTPException(400, "Phone already registered")
+        raise HTTPException(400, "Bu telefon raqam allaqachon ro'yxatdan o'tgan")
+    if data.email:
+        email_existing = await db.execute(select(User).where(User.email == data.email))
+        if email_existing.scalar_one_or_none():
+            raise HTTPException(400, "Bu email allaqachon ro'yxatdan o'tgan")
     user = User(**data.model_dump(exclude={"password"}), password_hash=hash_password(data.password))
     if data.role == UserRole.student:
         user.student_status = "active"
     db.add(user)
     await db.flush()  # get user.id before commit
 
-    # Auto-create staff profile for teacher/staff roles
-    if data.role in (UserRole.teacher, UserRole.staff):
+    # Auto-create staff profile for teacher/assistant_teacher/staff roles
+    if data.role in (UserRole.teacher, UserRole.assistant_teacher, UserRole.staff):
         profile = StaffProfile(user_id=user.id)
         db.add(profile)
 
     await db.commit()
     await db.refresh(user)
-    return user
+    # Refresh qaytadan yuklasin (branch_id lazy load muammosi)
+    result2 = await db.execute(select(User).where(User.id == user.id))
+    return result2.scalar_one()
 
 
 @router.get("/{user_id}", response_model=UserOut)

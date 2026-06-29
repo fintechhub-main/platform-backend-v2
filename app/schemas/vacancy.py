@@ -11,7 +11,12 @@ class VacancyCreate(BaseModel):
     requirements: Optional[str] = None
     salary_min: Optional[int] = None
     salary_max: Optional[int] = None
+    salary_currency: Optional[str] = "uzs"
     is_active: bool = True
+    source: Optional[str] = "manual"
+    source_url: Optional[str] = None
+    telegram_message_id: Optional[int] = None
+    telegram_source_id: Optional[uuid.UUID] = None
 
 
 class VacancyUpdate(BaseModel):
@@ -21,6 +26,7 @@ class VacancyUpdate(BaseModel):
     requirements: Optional[str] = None
     salary_min: Optional[int] = None
     salary_max: Optional[int] = None
+    salary_currency: Optional[str] = None
     is_active: Optional[bool] = None
 
 
@@ -33,6 +39,10 @@ class VacancyOut(BaseModel):
     salary_min: Optional[int]
     salary_max: Optional[int]
     is_active: bool
+    salary_currency: Optional[str] = "uzs"
+    source: Optional[str] = "manual"
+    source_url: Optional[str] = None
+    telegram_source_id: Optional[uuid.UUID] = None
     applicant_count: int = 0
 
     model_config = {"from_attributes": True}

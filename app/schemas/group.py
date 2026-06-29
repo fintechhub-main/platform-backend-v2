@@ -61,6 +61,7 @@ class GroupOut(BaseModel):
     course_id: uuid.UUID
     teacher_id: uuid.UUID
     teacher_name: Optional[str] = None
+    course_title: Optional[str] = None
     status: GroupStatus
     start_date: Optional[date]
     end_date: Optional[date]

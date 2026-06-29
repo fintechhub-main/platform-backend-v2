@@ -1,4 +1,5 @@
 import uuid
+from typing import Optional
 from sqlalchemy import String, Text, Integer, Boolean, Enum as SAEnum, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -25,6 +26,14 @@ class Vacancy(Base):
     salary_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
     salary_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    salary_currency: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, default="uzs")
+
+    # Auto-fetch fields
+    source: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, default="manual")
+    source_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    telegram_message_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    telegram_source_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("telegram_sources.id", ondelete="SET NULL"), nullable=True)
 
     applicants: Mapped[list["VacancyApplicant"]] = relationship("VacancyApplicant", back_populates="vacancy")
 

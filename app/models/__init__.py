@@ -23,6 +23,9 @@ from app.models.branch import Branch
 from app.models.practicum import PracticumTeam, PracticumTask
 from app.models.audit_log import AuditLog
 from app.models.ai_settings import AISettings
+from app.models.telegram_source import TelegramSource
+from app.models.integration_settings import IntegrationSettings
+from app.models.general_settings import GeneralSettings
 
 __all__ = [
     "User", "Course", "Group", "GroupStudent",
@@ -36,4 +39,6 @@ __all__ = [
     "Branch", "PracticumTeam", "PracticumTask",
     "AuditLog",
     "AISettings",
+    "TelegramSource",
+    "IntegrationSettings",
 ]

@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import String, Boolean, Enum as SAEnum, Date, DateTime, func
+from sqlalchemy import String, Boolean, Enum as SAEnum, Date, DateTime, func, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
@@ -12,6 +12,7 @@ from app.database import Base
 class UserRole(str, enum.Enum):
     admin = "admin"
     teacher = "teacher"
+    assistant_teacher = "assistant_teacher"
     student = "student"
     staff = "staff"
 
@@ -38,6 +39,7 @@ class User(Base):
     mother_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     father_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     father_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    branch_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     taught_groups: Mapped[list["Group"]] = relationship("Group", back_populates="teacher", foreign_keys="Group.teacher_id")

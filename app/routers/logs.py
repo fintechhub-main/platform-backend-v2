@@ -4,7 +4,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, or_
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -20,8 +20,9 @@ async def list_logs(
     branch_id: Optional[str] = Query(None),
     date_from: Optional[str] = Query(None),
     date_to: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 500,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
@@ -36,6 +37,13 @@ async def list_logs(
         q = q.where(AuditLog.created_at >= datetime.fromisoformat(date_from))
     if date_to:
         q = q.where(AuditLog.created_at <= datetime.fromisoformat(date_to + "T23:59:59"))
+    if search:
+        like = f"%{search}%"
+        q = q.where(or_(
+            AuditLog.target.ilike(like),
+            AuditLog.detail.ilike(like),
+            AuditLog.user_name.ilike(like),
+        ))
     result = await db.execute(q.offset(skip).limit(limit))
     rows = result.scalars().all()
     return [

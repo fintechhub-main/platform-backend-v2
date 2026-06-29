@@ -18,6 +18,7 @@ class RoomCreate(BaseModel):
     next_free: Optional[str] = None
     schedule: List[Any] = []
     weekly: dict = {}
+    branch_id: Optional[uuid.UUID] = None
 
 
 class RoomUpdate(BaseModel):
@@ -47,6 +48,7 @@ class RoomOut(BaseModel):
     next_free: Optional[str]
     schedule: List[Any]
     weekly: dict
+    branch_id: Optional[uuid.UUID] = None
 
     model_config = {"from_attributes": True}
 

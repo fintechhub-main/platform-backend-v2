@@ -11,6 +11,7 @@ class UserCreate(BaseModel):
     email: Optional[str] = None
     password: str
     role: UserRole = UserRole.student
+    branch_id: Optional[uuid.UUID] = None
 
 
 class UserUpdate(BaseModel):
@@ -51,6 +52,7 @@ class UserOut(BaseModel):
     mother_phone: Optional[str] = None
     father_name: Optional[str] = None
     father_phone: Optional[str] = None
+    branch_id: Optional[uuid.UUID] = None
     created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}

@@ -12,6 +12,7 @@ class GroupStatus(str, enum.Enum):
     active = "active"
     completed = "completed"
     planned = "planned"
+    stopped = "stopped"
 
 
 class GroupStudent(Base):

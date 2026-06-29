@@ -11,6 +11,7 @@ from app.models.attendance import Attendance
 from app.models.group import Group
 from app.schemas.attendance import AttendanceCreate, AttendanceUpdate, AttendanceOut, BulkAttendanceCreate
 from app.dependencies import get_current_user, require_admin_or_teacher
+from app.utils.audit import write_log
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
 
@@ -89,9 +90,16 @@ async def student_attendance_stats(
 
 
 @router.post("", response_model=AttendanceOut, status_code=201)
-async def create_attendance(data: AttendanceCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin_or_teacher)):
+async def create_attendance(data: AttendanceCreate, db: AsyncSession = Depends(get_db), current_user=Depends(require_admin_or_teacher)):
     att = Attendance(**data.model_dump())
     db.add(att)
+    await write_log(
+        db,
+        user=current_user,
+        action="attendance.create",
+        target=f"student:{data.student_id}, group:{data.group_id}, date:{data.date}",
+        detail=f"status={data.status}, grade={data.grade}",
+    )
     await db.commit()
     await db.refresh(att)
     return att
@@ -123,13 +131,32 @@ async def bulk_attendance(data: BulkAttendanceCreate, db: AsyncSession = Depends
 
 
 @router.patch("/{att_id}", response_model=AttendanceOut)
-async def update_attendance(att_id: uuid.UUID, data: AttendanceUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_admin_or_teacher)):
+async def update_attendance(att_id: uuid.UUID, data: AttendanceUpdate, db: AsyncSession = Depends(get_db), current_user=Depends(require_admin_or_teacher)):
     result = await db.execute(select(Attendance).where(Attendance.id == att_id))
     att = result.scalar_one_or_none()
     if not att:
         raise HTTPException(404, "Not found")
-    for k, v in data.model_dump(exclude_none=True).items():
+    changes = {k: v for k, v in data.model_dump(exclude_none=True).items()}
+    old_status = att.status
+    old_grade = att.grade
+    for k, v in changes.items():
         setattr(att, k, v)
+    detail_parts = []
+    if "status" in changes:
+        old_s = old_status.value if hasattr(old_status, "value") else str(old_status)
+        new_s = changes['status'].value if hasattr(changes['status'], "value") else str(changes['status'])
+        detail_parts.append(f"davomat: {old_s}→{new_s}")
+    if "grade" in changes:
+        detail_parts.append(f"baho: {old_grade}→{changes['grade']}")
+    if "reason" in changes:
+        detail_parts.append(f"sabab: {changes['reason']}")
+    await write_log(
+        db,
+        user=current_user,
+        action="attendance.update",
+        target=f"att_id:{att_id}, student:{att.student_id}, date:{att.date}",
+        detail=", ".join(detail_parts) if detail_parts else "o'zgartirildi",
+    )
     await db.commit()
     await db.refresh(att)
     return att

@@ -10,6 +10,7 @@ class CourseCreate(BaseModel):
     price: int = 0
     duration_months: int = 3
     is_active: bool = True
+    branch_id: Optional[uuid.UUID] = None
 
 
 class CourseUpdate(BaseModel):
@@ -19,6 +20,7 @@ class CourseUpdate(BaseModel):
     price: Optional[int] = None
     duration_months: Optional[int] = None
     is_active: Optional[bool] = None
+    branch_id: Optional[uuid.UUID] = None
 
 
 class CourseOut(BaseModel):
@@ -29,5 +31,6 @@ class CourseOut(BaseModel):
     price: int
     duration_months: int
     is_active: bool
+    branch_id: Optional[uuid.UUID] = None
 
     model_config = {"from_attributes": True}

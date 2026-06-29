@@ -6,7 +6,6 @@ from typing import List, Optional
 
 from app.database import get_db
 from app.models.course import Course
-from app.models.group import Group
 from app.schemas.course import CourseCreate, CourseUpdate, CourseOut
 from app.dependencies import get_current_user, require_admin
 
@@ -18,7 +17,7 @@ async def list_courses(
     is_active: Optional[bool] = Query(None),
     search: Optional[str] = Query(None),
     branch_id: Optional[str] = Query(None),
-    skip: int = 0, limit: int = 50,
+    skip: int = 0, limit: int = 100,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
@@ -28,9 +27,7 @@ async def list_courses(
     if search:
         q = q.where(Course.title.ilike(f"%{search}%"))
     if branch_id:
-        q = q.where(Course.id.in_(
-            select(Group.course_id).where(Group.branch_id == uuid.UUID(branch_id)).distinct()
-        ))
+        q = q.where(Course.branch_id == uuid.UUID(branch_id))
     result = await db.execute(q.offset(skip).limit(limit))
     return result.scalars().all()
 
