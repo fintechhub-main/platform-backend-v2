@@ -625,6 +625,7 @@ async def teacher_salary(
     year: int = Query(...),
     month: int = Query(...),
     teacher_id: Optional[uuid.UUID] = Query(None),
+    branch_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
@@ -640,6 +641,8 @@ async def teacher_salary(
     )
     if teacher_id:
         groups_q = groups_q.where(Group.teacher_id == teacher_id)
+    if branch_id:
+        groups_q = groups_q.where(Group.branch_id == uuid.UUID(branch_id))
 
     groups = (await db.execute(groups_q)).unique().scalars().all()
 

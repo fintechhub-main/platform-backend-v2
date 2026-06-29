@@ -17,9 +17,11 @@ router = APIRouter(prefix="/discounts", tags=["discounts"])
 async def list_discounts(
     student_id: Optional[uuid.UUID] = Query(None),
     group_id: Optional[uuid.UUID] = Query(None),
+    branch_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
+    from app.models.group import Group
     q = (
         select(Discount, User.full_name, User.phone)
         .join(User, User.id == Discount.student_id)
@@ -28,6 +30,11 @@ async def list_discounts(
         q = q.where(Discount.student_id == student_id)
     if group_id:
         q = q.where(Discount.group_id == group_id)
+    if branch_id:
+        q = (
+            q.join(Group, Group.id == Discount.group_id)
+             .where(Group.branch_id == uuid.UUID(branch_id))
+        )
     rows = (await db.execute(q.order_by(Discount.start_date.desc().nulls_last()))).all()
     result = []
     for discount, full_name, phone in rows:
