@@ -19,8 +19,8 @@ class GroupStudent(Base):
     __tablename__ = "group_students"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    group_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("groups.id", ondelete="CASCADE"))
-    student_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
+    group_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("groups.id", ondelete="CASCADE"), index=True)
+    student_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
     is_frozen: Mapped[bool] = mapped_column(Boolean, default=False)
 
     group: Mapped["Group"] = relationship("Group", back_populates="group_students")
@@ -32,8 +32,8 @@ class Group(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(100))
-    course_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("courses.id"))
-    teacher_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    course_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("courses.id"), index=True)
+    teacher_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), index=True)
     status: Mapped[GroupStatus] = mapped_column(SAEnum(GroupStatus), default=GroupStatus.active)
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
@@ -51,7 +51,7 @@ class Group(Base):
     group_link: Mapped[str | None] = mapped_column(String(200), nullable=True)
     chat_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     attendance_topic_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    branch_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id", ondelete="SET NULL"), nullable=True)
+    branch_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id", ondelete="SET NULL"), nullable=True, index=True)
 
     course: Mapped["Course"] = relationship("Course", back_populates="groups")
     branch: Mapped["Branch"] = relationship("Branch", back_populates="groups", lazy="noload")

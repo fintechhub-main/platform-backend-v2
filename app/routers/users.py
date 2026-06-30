@@ -20,28 +20,33 @@ async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-@router.get("", response_model=List[UserOut])
-async def list_users(
-    role: Optional[UserRole] = Query(None),
-    search: Optional[str] = Query(None),
-    is_active: Optional[bool] = Query(None),
-    student_status: Optional[str] = Query(None),
-    in_group: Optional[bool] = Query(None),
-    branch_id: Optional[str] = Query(None),
-    skip: int = 0,
-    limit: int = 50,
-    db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin),
-):
+@router.patch("/me", response_model=UserOut)
+async def update_me(data: UserUpdate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    for key, val in data.model_dump(exclude_none=True).items():
+        setattr(current_user, key, val)
+    await db.commit()
+    await db.refresh(current_user)
+    return current_user
+
+
+def _build_user_query(role, search, is_active, student_status, in_group, branch_id, group_id=None, course_id=None):
     q = select(User)
     if role:
         q = q.where(User.role == role)
     if search:
-        q = q.where(User.full_name.ilike(f"%{search}%"))
+        q = q.where(User.full_name.ilike(f"%{search}%") | User.phone.ilike(f"%{search}%"))
     if is_active is not None:
         q = q.where(User.is_active == is_active)
     if student_status is not None:
         q = q.where(User.student_status == student_status)
+    if group_id:
+        q = q.where(User.id.in_(select(GroupStudent.student_id).where(GroupStudent.group_id == group_id)))
+    if course_id:
+        q = q.where(User.id.in_(
+            select(GroupStudent.student_id)
+            .join(Group, Group.id == GroupStudent.group_id)
+            .where(Group.course_id == course_id)
+        ))
     if in_group is True:
         q = q.where(User.id.in_(select(GroupStudent.student_id).distinct()))
     elif in_group is False:
@@ -60,9 +65,7 @@ async def list_users(
         elif role == UserRole.teacher:
             q = q.where(
                 (User.branch_id == branch_uuid) |
-                User.id.in_(
-                    select(Group.teacher_id).where(Group.branch_id == branch_uuid)
-                )
+                User.id.in_(select(Group.teacher_id).where(Group.branch_id == branch_uuid))
             )
         else:
             student_subq = (
@@ -79,8 +82,75 @@ async def list_users(
                 (User.branch_id == branch_uuid) |
                 User.id.in_(select(combined.c.id))
             )
-    q = q.offset(skip).limit(limit)
-    result = await db.execute(q)
+    return q
+
+
+@router.get("/count")
+async def count_users(
+    role: Optional[UserRole] = Query(None),
+    search: Optional[str] = Query(None),
+    is_active: Optional[bool] = Query(None),
+    student_status: Optional[str] = Query(None),
+    in_group: Optional[bool] = Query(None),
+    branch_id: Optional[str] = Query(None),
+    group_id: Optional[uuid.UUID] = Query(None),
+    course_id: Optional[uuid.UUID] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_admin),
+):
+    q = _build_user_query(role, search, is_active, student_status, in_group, branch_id, group_id, course_id)
+    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
+    return {"total": total}
+
+
+@router.get("/student-counts")
+async def student_status_counts(
+    branch_id: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_admin),
+):
+    q = select(User.student_status, func.count(User.id)).where(User.role == UserRole.student)
+    if branch_id:
+        branch_uuid = uuid.UUID(branch_id)
+        q = q.where(
+            (User.branch_id == branch_uuid) |
+            User.id.in_(
+                select(GroupStudent.student_id)
+                .join(Group, Group.id == GroupStudent.group_id)
+                .where(Group.branch_id == branch_uuid)
+            )
+        )
+    q = q.group_by(User.student_status)
+    rows = (await db.execute(q)).all()
+    counts = {status: cnt for status, cnt in rows}
+    total = sum(counts.values())
+    return {
+        "total":     total,
+        "active":    counts.get("active", 0),
+        "pending":   counts.get("pending", 0),
+        "frozen":    counts.get("frozen", 0),
+        "graduated": counts.get("graduated", 0),
+        "dropped":   counts.get("dropped", 0),
+    }
+
+
+@router.get("", response_model=List[UserOut])
+async def list_users(
+    role: Optional[UserRole] = Query(None),
+    search: Optional[str] = Query(None),
+    is_active: Optional[bool] = Query(None),
+    student_status: Optional[str] = Query(None),
+    in_group: Optional[bool] = Query(None),
+    branch_id: Optional[str] = Query(None),
+    group_id: Optional[uuid.UUID] = Query(None),
+    course_id: Optional[uuid.UUID] = Query(None),
+    skip: int = 0,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_admin),
+):
+    q = _build_user_query(role, search, is_active, student_status, in_group, branch_id, group_id, course_id)
+    result = await db.execute(q.offset(skip).limit(limit))
     return result.scalars().all()
 
 

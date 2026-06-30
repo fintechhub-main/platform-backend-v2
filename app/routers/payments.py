@@ -385,6 +385,7 @@ async def delete_payment(
 @router.get("/debt-summary")
 async def debt_summary(
     student_id: Optional[uuid.UUID] = Query(None),
+    student_ids: Optional[str] = Query(None),  # comma-separated UUIDs
     group_id: Optional[uuid.UUID] = Query(None),
     branch_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
@@ -401,6 +402,10 @@ async def debt_summary(
     )
     if student_id:
         gs_q = gs_q.where(GroupStudent.student_id == student_id)
+    elif student_ids:
+        id_list = [uuid.UUID(s.strip()) for s in student_ids.split(',') if s.strip()]
+        if id_list:
+            gs_q = gs_q.where(GroupStudent.student_id.in_(id_list))
     if group_id:
         gs_q = gs_q.where(GroupStudent.group_id == group_id)
     if branch_id:

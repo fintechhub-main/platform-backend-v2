@@ -2,13 +2,20 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from pydantic import BaseModel
 
 from app.database import get_db
+from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.user import LoginRequest, TokenResponse, RefreshRequest, UserOut, UserCreate
 from app.utils.auth import verify_password, hash_password, create_access_token, create_refresh_token, decode_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
 
 
 @router.post("/register", response_model=UserOut, status_code=201)
@@ -65,3 +72,18 @@ async def refresh_token(data: RefreshRequest, db: AsyncSession = Depends(get_db)
         refresh_token=new_refresh,
         user=UserOut.model_validate(user),
     )
+
+
+@router.post("/change-password")
+async def change_password(
+    data: ChangePasswordRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not verify_password(data.old_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Eski parol noto'g'ri")
+    if data.old_password == data.new_password:
+        raise HTTPException(status_code=400, detail="Yangi parol eski parol bilan bir xil bo'lmasligi kerak")
+    current_user.password_hash = hash_password(data.new_password)
+    await db.commit()
+    return {"ok": True, "message": "Parol muvaffaqiyatli o'zgartirildi"}

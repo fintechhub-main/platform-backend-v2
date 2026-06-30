@@ -1,6 +1,6 @@
 import uuid
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import date
 from app.models.group import GroupStatus
 from app.schemas.user import UserOut
@@ -53,6 +53,15 @@ class GroupUpdate(BaseModel):
     chat_id: Optional[str] = None
     attendance_topic_id: Optional[str] = None
     branch_id: Optional[uuid.UUID] = None
+
+
+class GroupSlim(BaseModel):
+    id: uuid.UUID
+    name: str
+    teacher_name: Optional[str] = None
+    schedule: Optional[str] = None
+
+    model_config = {"from_attributes": True}
 
 
 class GroupOut(BaseModel):

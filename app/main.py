@@ -15,6 +15,7 @@ from app.routers import (
     branches, practicum, logs, reports, ai, telegram_sources, integrations,
     general_settings, events, holidays,
 )
+from app.routers.telegram_auth import router as telegram_auth_router, set_webhook
 from app.utils.daily_attendance import run_daily_attendance
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,9 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(_vacancy_fetch_job, CronTrigger(minute=0), id="vacancy_auto_fetch", replace_existing=True)
     scheduler.start()
     logger.info("Scheduler ishga tushdi (daily_attendance 06:00, vacancy_fetch har soat)")
+    # Register Telegram webhook
+    result = await set_webhook("https://lms-test.fintechhub.uz")
+    logger.info(f"Telegram webhook: {result}")
     yield
     scheduler.shutdown()
 
@@ -93,6 +97,7 @@ app.include_router(integrations.router,        prefix="/api/v1")
 app.include_router(general_settings.router,    prefix="/api/v1")
 app.include_router(events.router,              prefix="/api/v1")
 app.include_router(holidays.router,            prefix="/api/v1")
+app.include_router(telegram_auth_router,       prefix="/api/v1")
 
 
 @app.get("/")

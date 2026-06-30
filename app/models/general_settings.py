@@ -20,3 +20,16 @@ class GeneralSettings(Base):
     academic_year_start: Mapped[Optional[str]] = mapped_column(String(2), default="09")
     academic_year_end: Mapped[Optional[str]] = mapped_column(String(2), default="06")
     work_days: Mapped[Optional[str]] = mapped_column(String(20), default="1,2,3,4,5,6")
+
+    # Notification settings
+    notif_email: Mapped[Optional[bool]] = mapped_column(Boolean, default=True, nullable=True)
+    notif_sms: Mapped[Optional[bool]] = mapped_column(Boolean, default=False, nullable=True)
+    notif_telegram: Mapped[Optional[bool]] = mapped_column(Boolean, default=True, nullable=True)
+    notif_payment: Mapped[Optional[bool]] = mapped_column(Boolean, default=True, nullable=True)
+    notif_attendance: Mapped[Optional[bool]] = mapped_column(Boolean, default=True, nullable=True)
+    notif_exams: Mapped[Optional[bool]] = mapped_column(Boolean, default=False, nullable=True)
+
+    # Payment settings
+    payment_methods: Mapped[Optional[str]] = mapped_column(String(200), default="cash,card", nullable=True)
+    late_fee_percent: Mapped[Optional[str]] = mapped_column(String(10), default="0", nullable=True)
+    payment_day: Mapped[Optional[str]] = mapped_column(String(5), default="1", nullable=True)

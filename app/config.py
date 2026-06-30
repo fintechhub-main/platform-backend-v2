@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000,http://localhost:3001"
     DEEPSEEK_API_KEY: str = ""
+    TELEGRAM_BOT_TOKEN: str = ""
+    TELEGRAM_BOT_USERNAME: str = "Malumotimbot"
 
     @property
     def cors_origins(self) -> List[str]:

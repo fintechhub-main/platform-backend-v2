@@ -32,6 +32,8 @@ class StaffOut(BaseModel):
     @classmethod
     def parse_json(cls, v):
         if isinstance(v, str):
+            if not v.strip():
+                return []
             return json.loads(v)
         return v or []
 

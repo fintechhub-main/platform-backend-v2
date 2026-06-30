@@ -25,7 +25,7 @@ class User(Base):
     phone: Mapped[str] = mapped_column(String(20), unique=True, index=True)
     email: Mapped[str | None] = mapped_column(String(120), unique=True, nullable=True)
     password_hash: Mapped[str] = mapped_column(String(256))
-    role: Mapped[UserRole] = mapped_column(SAEnum(UserRole), default=UserRole.student)
+    role: Mapped[UserRole] = mapped_column(SAEnum(UserRole), default=UserRole.student, index=True)
     avatar: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     student_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
@@ -39,7 +39,7 @@ class User(Base):
     mother_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     father_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     father_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    branch_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id", ondelete="SET NULL"), nullable=True)
+    branch_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id", ondelete="SET NULL"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     taught_groups: Mapped[list["Group"]] = relationship("Group", back_populates="teacher", foreign_keys="Group.teacher_id")

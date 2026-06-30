@@ -8,12 +8,27 @@ from typing import List, Optional
 from app.database import get_db
 from app.models.group import Group, GroupStudent
 from app.models.user import User
-from app.schemas.group import GroupCreate, GroupUpdate, GroupOut, GroupDetailOut
+from app.schemas.group import GroupCreate, GroupUpdate, GroupOut, GroupDetailOut, GroupSlim
 from app.schemas.user import UserOut
 from app.dependencies import get_current_user, require_admin, require_admin_or_teacher
 from app.utils.attendance_generator import generate_attendance_for_group
 
 router = APIRouter(prefix="/groups", tags=["groups"])
+
+
+@router.get("/my", response_model=List[GroupOut])
+async def my_groups(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    q = (
+        select(Group)
+        .join(GroupStudent, GroupStudent.group_id == Group.id)
+        .where(GroupStudent.student_id == current_user.id)
+        .order_by(Group.start_date.desc())
+    )
+    result = await db.execute(q)
+    return result.scalars().all()
 
 
 @router.get("", response_model=List[GroupOut])
@@ -86,6 +101,35 @@ async def frozen_students(
             "group_id": str(gs_group_id),
         }
         for u, gs_group_id in rows
+    ]
+
+
+@router.get("/slim", response_model=List[GroupSlim])
+async def list_groups_slim(
+    branch_id: Optional[str] = Query(None),
+    course_id: Optional[uuid.UUID] = Query(None),
+    status: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Lightweight group list — only fields needed for filter dropdowns and student mapping."""
+    q = select(Group).options(joinedload(Group.teacher))
+    if branch_id:
+        q = q.where(Group.branch_id == uuid.UUID(branch_id))
+    if course_id:
+        q = q.where(Group.course_id == course_id)
+    if status:
+        q = q.where(Group.status == status)
+    result = await db.execute(q)
+    groups = result.unique().scalars().all()
+    return [
+        GroupSlim(
+            id=g.id,
+            name=g.name,
+            teacher_name=g.teacher.full_name if g.teacher else None,
+            schedule=g.schedule,
+        )
+        for g in groups
     ]
 
 
