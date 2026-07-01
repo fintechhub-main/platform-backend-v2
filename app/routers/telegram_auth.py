@@ -35,6 +35,9 @@ async def telegram_status(session_id: str):
     session = _sessions.get(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    # One-time fetch: remove session after tokens are delivered to prevent token leakage
+    if session.get("status") == "completed":
+        _sessions.pop(session_id, None)
     return session
 
 

@@ -15,7 +15,7 @@ from app.models.group import Group, GroupStudent
 from app.models.user import User
 from app.models.discount import Discount, DiscountStatus, DiscountType
 from app.schemas.payment import PaymentCreate, PaymentUpdate, PaymentOut, PaymentRefundCreate, PaymentRefundOut
-from app.dependencies import get_current_user, require_admin_or_teacher
+from app.dependencies import get_current_user, require_admin_or_teacher, require_permission
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -192,7 +192,7 @@ async def payment_stats(
     date_to: Optional[date] = Query(None),
     branch_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("payments", "view")),
 ):
     q = (
         select(func.count(Payment.id), func.sum(Payment.amount))
@@ -216,7 +216,7 @@ async def count_payments(
     date_to: Optional[date] = Query(None),
     branch_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("payments", "view")),
 ):
     q = select(func.count(Payment.id)).outerjoin(Group, Group.id == Payment.group_id)
     if student_id:
@@ -243,7 +243,7 @@ async def list_payments(
     skip: int = 0,
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("payments", "view")),
 ):
     q = (
         select(Payment, User.full_name, User.phone, Group.name, Group.teacher_id)

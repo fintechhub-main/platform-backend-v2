@@ -9,7 +9,7 @@ from app.models.user import User
 from app.models.staff_profile import StaffProfile
 from app.models.group import Group
 from app.schemas.staff import StaffOut, StaffProfileUpdate
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_admin
 
 router = APIRouter(prefix="/staff", tags=["staff"])
 
@@ -91,6 +91,9 @@ async def update_staff(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Only admin or the staff member themselves can update
+    if str(current_user.id) != str(user_id) and str(current_user.role) != "admin":
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
     q = (
         select(User, StaffProfile)
         .join(StaffProfile, StaffProfile.user_id == User.id)

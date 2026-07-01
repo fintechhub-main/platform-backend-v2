@@ -9,7 +9,7 @@ from app.models.user import User, UserRole
 from app.models.group import Group, GroupStudent
 from app.models.staff_profile import StaffProfile
 from app.schemas.user import UserCreate, UserUpdate, UserOut
-from app.dependencies import get_current_user, require_admin
+from app.dependencies import get_current_user, require_admin, require_permission
 from app.utils.auth import hash_password
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -96,7 +96,7 @@ async def count_users(
     group_id: Optional[uuid.UUID] = Query(None),
     course_id: Optional[uuid.UUID] = Query(None),
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin),
+    _=Depends(require_permission("students", "view")),
 ):
     q = _build_user_query(role, search, is_active, student_status, in_group, branch_id, group_id, course_id)
     total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
@@ -221,7 +221,9 @@ async def create_user(data: UserCreate, db: AsyncSession = Depends(get_db), _=De
 
 
 @router.get("/{user_id}", response_model=UserOut)
-async def get_user(user_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+async def get_user(user_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if str(current_user.id) != str(user_id) and str(current_user.role) not in ("admin", "manager"):
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:

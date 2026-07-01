@@ -5,7 +5,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_admin
 from app.models.user import User
 from app.models.general_settings import GeneralSettings
 
@@ -95,7 +95,7 @@ async def get_general_settings(
 async def update_general_settings(
     data: GeneralSettingsUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _=Depends(require_admin),
 ):
     result = await db.execute(select(GeneralSettings).limit(1))
     row = result.scalar_one_or_none()

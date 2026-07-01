@@ -8,7 +8,7 @@ from typing import Optional, List
 from app.database import get_db
 from app.models.branch import Branch
 from app.models.group import Group
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_admin
 
 router = APIRouter(prefix="/branches", tags=["branches"])
 
@@ -36,7 +36,7 @@ async def list_branches(db: AsyncSession = Depends(get_db), _=Depends(get_curren
 
 
 @router.post("", response_model=BranchOut)
-async def create_branch(data: BranchCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+async def create_branch(data: BranchCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
     branch = Branch(**data.model_dump())
     db.add(branch)
     await db.commit()
@@ -45,7 +45,7 @@ async def create_branch(data: BranchCreate, db: AsyncSession = Depends(get_db), 
 
 
 @router.put("/{branch_id}", response_model=BranchOut)
-async def update_branch(branch_id: uuid.UUID, data: BranchCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+async def update_branch(branch_id: uuid.UUID, data: BranchCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
     branch = (await db.execute(select(Branch).where(Branch.id == branch_id))).scalar_one_or_none()
     if not branch:
         raise HTTPException(404, "Branch not found")
@@ -57,7 +57,7 @@ async def update_branch(branch_id: uuid.UUID, data: BranchCreate, db: AsyncSessi
 
 
 @router.delete("/{branch_id}")
-async def delete_branch(branch_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+async def delete_branch(branch_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
     branch = (await db.execute(select(Branch).where(Branch.id == branch_id))).scalar_one_or_none()
     if not branch:
         raise HTTPException(404, "Branch not found")
@@ -75,7 +75,7 @@ async def assign_groups(
     branch_id: uuid.UUID,
     body: BulkAssignBody,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_admin),
 ):
     await db.execute(
         update(Group)
@@ -90,7 +90,7 @@ async def assign_groups(
 async def assign_all_groups(
     branch_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_admin),
 ):
     """Assign all groups that have no branch to this branch."""
     result = await db.execute(

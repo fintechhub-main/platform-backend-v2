@@ -5,7 +5,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_admin
 from app.models.user import User, UserRole
 from app.models.integration_settings import IntegrationSettings
 
@@ -47,7 +47,7 @@ INTEGRATION_KEYS = ["telegram", "eskiz", "playmobile", "firebase", "amocrm", "bi
 @router.get("")
 async def list_integrations(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _=Depends(require_admin),
 ):
     result = await db.execute(select(IntegrationSettings))
     rows = {r.key: r for r in result.scalars().all()}
@@ -76,7 +76,7 @@ async def update_integration(
     key: str,
     data: IntegrationUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _=Depends(require_admin),
 ):
     if key not in INTEGRATION_KEYS:
         from fastapi import HTTPException
