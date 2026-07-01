@@ -234,7 +234,7 @@ async def create_user(data: UserCreate, db: AsyncSession = Depends(get_db), _=De
 
 @router.get("/{user_id}", response_model=UserOut)
 async def get_user(user_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if str(current_user.id) != str(user_id) and str(current_user.role) not in ("admin", "manager"):
+    if str(current_user.id) != str(user_id) and str(current_user.role) not in ("admin", "superadmin", "manager"):
         raise HTTPException(status_code=403, detail="Ruxsat yo'q")
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
