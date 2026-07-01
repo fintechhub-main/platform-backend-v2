@@ -1,11 +1,12 @@
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
 
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.limiter import limiter
 from app.models.user import User
 from app.schemas.user import LoginRequest, TokenResponse, RefreshRequest, UserOut, UserCreate
 from app.utils.auth import verify_password, hash_password, create_access_token, create_refresh_token, decode_token
@@ -19,7 +20,8 @@ class ChangePasswordRequest(BaseModel):
 
 
 @router.post("/register", response_model=UserOut, status_code=201)
-async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):
+@limiter.limit("3/hour")
+async def register(request: Request, data: UserCreate, db: AsyncSession = Depends(get_db)):
     existing = await db.execute(select(User).where(User.phone == data.phone))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Phone already registered")
@@ -39,7 +41,8 @@ async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def login(request: Request, data: LoginRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.phone == data.phone))
     user = result.scalar_one_or_none()
     if not user or not verify_password(data.password, user.password_hash):
