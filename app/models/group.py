@@ -56,5 +56,5 @@ class Group(Base):
     course: Mapped["Course"] = relationship("Course", back_populates="groups")
     branch: Mapped["Branch"] = relationship("Branch", back_populates="groups", lazy="noload")
     teacher: Mapped["User"] = relationship("User", back_populates="taught_groups", foreign_keys=[teacher_id])
-    group_students: Mapped[list["GroupStudent"]] = relationship("GroupStudent", back_populates="group")
-    attendances: Mapped[list["Attendance"]] = relationship("Attendance", back_populates="group")
+    group_students: Mapped[list["GroupStudent"]] = relationship("GroupStudent", back_populates="group", passive_deletes=True)
+    attendances: Mapped[list["Attendance"]] = relationship("Attendance", back_populates="group", passive_deletes=True)
