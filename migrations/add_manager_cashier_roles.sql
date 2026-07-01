@@ -1,0 +1,2 @@
+ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'manager';
+ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'cashier';
