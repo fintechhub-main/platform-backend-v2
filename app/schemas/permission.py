@@ -52,3 +52,17 @@ class RoleBranchPermOut(BaseModel):
 class BranchPermMatrix(BaseModel):
     # {role: [branch_id_str, ...]}  — only allowed branches listed
     matrix: Dict[str, List[str]]
+
+
+class CustomRoleCreate(BaseModel):
+    key:   str
+    label: str
+    color: str = "#6366f1"
+
+
+class CustomRoleOut(BaseModel):
+    key:   str
+    label: str
+    color: str
+    is_default: bool = False
+    model_config = {"from_attributes": True}

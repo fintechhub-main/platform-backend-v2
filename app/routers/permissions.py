@@ -5,8 +5,12 @@ from sqlalchemy import select, and_, delete
 from typing import List
 
 from app.database import get_db
-from app.models.permission import RolePermission, RoleBranchPermission
-from app.schemas.permission import RolePermissionCreate, RolePermissionUpdate, RolePermissionOut, RolePermissionsMatrix, RoleBranchPermCreate, RoleBranchPermOut, BranchPermMatrix
+from app.models.permission import RolePermission, RoleBranchPermission, CustomRole
+from app.schemas.permission import (
+    RolePermissionCreate, RolePermissionUpdate, RolePermissionOut,
+    RolePermissionsMatrix, RoleBranchPermCreate, RoleBranchPermOut,
+    BranchPermMatrix, CustomRoleCreate, CustomRoleOut,
+)
 from app.dependencies import get_current_user, require_admin
 
 router = APIRouter(prefix="/permissions", tags=["permissions"])
@@ -93,6 +97,49 @@ async def get_branch_matrix(db: AsyncSession = Depends(get_db), _=Depends(requir
             matrix[p.role] = []
         matrix[p.role].append(str(p.branch_id))
     return BranchPermMatrix(matrix=matrix)
+
+
+@router.get("/roles", response_model=List[CustomRoleOut])
+async def get_roles(db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+    custom = (await db.execute(select(CustomRole))).scalars().all()
+    custom_keys = {r.key for r in custom}
+    defaults = [
+        CustomRoleOut(key=k, label=l, color=c, is_default=True)
+        for k, l, c in [
+            ("superadmin", "Super Admin", "#7c3aed"),
+            ("admin",      "Admin",       "#2563eb"),
+            ("manager",    "Menejer",     "#0891b2"),
+            ("teacher",    "O'qituvchi",  "#16a34a"),
+            ("cashier",    "Kassir",      "#d97706"),
+            ("staff",      "Xodim",       "#475569"),
+            ("student",    "Talaba",      "#6b7280"),
+        ] if k not in custom_keys
+    ]
+    return defaults + [CustomRoleOut(key=r.key, label=r.label, color=r.color, is_default=False) for r in custom]
+
+
+@router.post("/roles", response_model=CustomRoleOut)
+async def create_role(item: CustomRoleCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+    existing = await db.get(CustomRole, item.key)
+    if existing:
+        raise HTTPException(400, "Bu kalit allaqachon mavjud")
+    role = CustomRole(key=item.key, label=item.label, color=item.color)
+    db.add(role)
+    await db.commit()
+    return CustomRoleOut(key=role.key, label=role.label, color=role.color, is_default=False)
+
+
+@router.delete("/roles/{key}")
+async def delete_role(key: str, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+    default_keys = {"superadmin", "admin", "manager", "teacher", "cashier", "staff", "student"}
+    if key in default_keys:
+        raise HTTPException(400, "Standart rolni o'chirib bo'lmaydi")
+    role = await db.get(CustomRole, key)
+    if role:
+        await db.delete(role)
+    await db.execute(delete(RolePermission).where(RolePermission.role == key))
+    await db.commit()
+    return {"deleted": key}
 
 
 @router.post("/branch-bulk")

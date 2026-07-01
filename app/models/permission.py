@@ -5,6 +5,14 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
 
+class CustomRole(Base):
+    __tablename__ = "custom_roles"
+
+    key:   Mapped[str] = mapped_column(String(50), primary_key=True)
+    label: Mapped[str] = mapped_column(String(100))
+    color: Mapped[str] = mapped_column(String(20), default="#6366f1")
+
+
 class RolePermission(Base):
     __tablename__ = "role_permissions"
 
