@@ -2,12 +2,13 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, or_
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_admin
 from app.models.audit_log import AuditLog
 
 router = APIRouter(prefix="/logs", tags=["logs"])
@@ -24,7 +25,7 @@ async def list_logs(
     skip: int = 0,
     limit: int = 500,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_admin),
 ):
     q = select(AuditLog).order_by(desc(AuditLog.created_at))
     if action:
@@ -64,21 +65,30 @@ async def list_logs(
     ]
 
 
+class LogCreateRequest(BaseModel):
+    action: str
+    target: Optional[str] = None
+    detail: Optional[str] = None
+    branch_id: Optional[str] = None
+
+
 @router.post("")
 async def create_log(
-    body: dict,
+    body: LogCreateRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    # SECURITY: user_id/role forced from token; IP from connection (not client-supplied)
     log = AuditLog(
         user_id=current_user.id,
         user_name=current_user.full_name,
         user_role=current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role),
-        action=body.get("action", "unknown"),
-        target=body.get("target"),
-        detail=body.get("detail"),
-        ip=body.get("ip"),
-        branch_id=uuid.UUID(body["branch_id"]) if body.get("branch_id") else None,
+        action=body.action,
+        target=body.target,
+        detail=body.detail,
+        ip=request.client.host if request.client else None,
+        branch_id=uuid.UUID(body.branch_id) if body.branch_id else None,
     )
     db.add(log)
     await db.commit()

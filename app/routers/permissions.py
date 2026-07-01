@@ -20,7 +20,7 @@ DEFAULT_PAGES = [
 
 
 @router.get("/matrix", response_model=RolePermissionsMatrix)
-async def get_matrix(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+async def get_matrix(db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
     result = await db.execute(select(RolePermission))
     perms = result.scalars().all()
 
@@ -82,7 +82,7 @@ async def save_role_permissions(
 
 
 @router.get("/branch-matrix", response_model=BranchPermMatrix)
-async def get_branch_matrix(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+async def get_branch_matrix(db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
     result = await db.execute(select(RoleBranchPermission).where(RoleBranchPermission.allowed == True))
     perms = result.scalars().all()
     matrix = {}

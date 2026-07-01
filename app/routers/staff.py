@@ -9,7 +9,7 @@ from app.models.user import User
 from app.models.staff_profile import StaffProfile
 from app.models.group import Group
 from app.schemas.staff import StaffOut, StaffProfileUpdate
-from app.dependencies import get_current_user, require_admin
+from app.dependencies import get_current_user, require_admin, require_admin_or_teacher
 
 router = APIRouter(prefix="/staff", tags=["staff"])
 
@@ -44,7 +44,7 @@ async def list_staff(
     status: str | None = None,
     branch_id: str | None = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin_or_teacher),
 ):
     from app.models.user import UserRole
     from app.models.staff_profile import StaffStatus

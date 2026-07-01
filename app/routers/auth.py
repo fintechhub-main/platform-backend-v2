@@ -23,12 +23,14 @@ async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):
     existing = await db.execute(select(User).where(User.phone == data.phone))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Phone already registered")
+    # SECURITY: role is always forced to 'student' — clients cannot self-assign admin
+    from app.models.user import UserRole
     user = User(
         full_name=data.full_name,
         phone=data.phone,
         email=data.email,
         password_hash=hash_password(data.password),
-        role=data.role,
+        role=UserRole.student,
     )
     db.add(user)
     await db.commit()
@@ -84,6 +86,8 @@ async def change_password(
         raise HTTPException(status_code=400, detail="Eski parol noto'g'ri")
     if data.old_password == data.new_password:
         raise HTTPException(status_code=400, detail="Yangi parol eski parol bilan bir xil bo'lmasligi kerak")
+    if len(data.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Yangi parol kamida 8 ta belgi bo'lishi kerak")
     current_user.password_hash = hash_password(data.new_password)
     await db.commit()
     return {"ok": True, "message": "Parol muvaffaqiyatli o'zgartirildi"}

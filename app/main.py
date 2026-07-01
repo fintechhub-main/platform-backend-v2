@@ -17,6 +17,10 @@ from app.routers import (
 )
 from app.routers.telegram_auth import router as telegram_auth_router, set_webhook
 from app.utils.daily_attendance import run_daily_attendance
+from app.dependencies import require_admin
+from app.database import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Depends
 
 logger = logging.getLogger(__name__)
 
@@ -105,9 +109,11 @@ async def root():
     return {"status": "ok", "docs": "/docs"}
 
 
-# Qo'lda ishga tushirish uchun (test/debug)
+# Qo'lda ishga tushirish uchun (faqat admin) — SECURITY: auth talab qilinadi
 @app.post("/api/v1/internal/run-daily-attendance", include_in_schema=False)
-async def trigger_daily_attendance():
-    async with async_session() as db:
-        count = await run_daily_attendance(db)
+async def trigger_daily_attendance(
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_admin),
+):
+    count = await run_daily_attendance(db)
     return {"created": count}

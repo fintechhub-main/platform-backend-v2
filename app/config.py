@@ -5,7 +5,7 @@ from typing import List
 
 class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://postgres:password@localhost:5432/platform_db"
-    SECRET_KEY: str = "change-me-in-production-use-openssl-rand-hex-32"
+    SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
