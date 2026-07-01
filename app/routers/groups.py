@@ -1,7 +1,7 @@
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from sqlalchemy.orm import selectinload, joinedload
 from typing import List, Optional
 
@@ -172,6 +172,8 @@ async def delete_group(group_id: uuid.UUID, db: AsyncSession = Depends(get_db), 
     group = result.scalar_one_or_none()
     if not group:
         raise HTTPException(404, "Group not found")
+    from app.models.group import GroupStudent
+    await db.execute(delete(GroupStudent).where(GroupStudent.group_id == group_id))
     await db.delete(group)
     await db.commit()
 
