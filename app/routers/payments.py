@@ -186,6 +186,53 @@ async def _enrich_payment(payment: Payment, db: AsyncSession) -> PaymentOut:
     return out
 
 
+@router.get("/stats")
+async def payment_stats(
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
+    branch_id: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    q = (
+        select(func.count(Payment.id), func.sum(Payment.amount))
+        .outerjoin(Group, Group.id == Payment.group_id)
+    )
+    if date_from:
+        q = q.where(Payment.date >= date_from)
+    if date_to:
+        q = q.where(Payment.date <= date_to)
+    if branch_id:
+        q = q.where(Group.branch_id == uuid.UUID(branch_id))
+    row = (await db.execute(q)).one()
+    return {"total_count": row[0] or 0, "total_amount": int(row[1] or 0)}
+
+
+@router.get("/count")
+async def count_payments(
+    student_id: Optional[uuid.UUID] = Query(None),
+    group_id: Optional[uuid.UUID] = Query(None),
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
+    branch_id: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    q = select(func.count(Payment.id)).outerjoin(Group, Group.id == Payment.group_id)
+    if student_id:
+        q = q.where(Payment.student_id == student_id)
+    if group_id:
+        q = q.where(Payment.group_id == group_id)
+    if date_from:
+        q = q.where(Payment.date >= date_from)
+    if date_to:
+        q = q.where(Payment.date <= date_to)
+    if branch_id:
+        q = q.where(Group.branch_id == uuid.UUID(branch_id))
+    total = (await db.execute(q)).scalar_one()
+    return {"total": total}
+
+
 @router.get("", response_model=List[PaymentOut])
 async def list_payments(
     student_id: Optional[uuid.UUID] = Query(None),
