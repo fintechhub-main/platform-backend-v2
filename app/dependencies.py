@@ -46,11 +46,11 @@ def require_roles(*roles: str):
     return checker
 
 
-require_admin              = require_roles("admin")
-require_admin_or_teacher   = require_roles("admin", "teacher")
-require_admin_or_manager   = require_roles("admin", "manager")
-require_admin_or_cashier   = require_roles("admin", "cashier")
-require_staff_roles        = require_roles("admin", "manager", "teacher", "cashier", "staff", "assistant_teacher")
+require_admin              = require_roles("admin", "superadmin")
+require_admin_or_teacher   = require_roles("admin", "superadmin", "teacher")
+require_admin_or_manager   = require_roles("admin", "superadmin", "manager")
+require_admin_or_cashier   = require_roles("admin", "superadmin", "cashier")
+require_staff_roles        = require_roles("admin", "superadmin", "manager", "teacher", "cashier", "staff", "assistant_teacher")
 
 
 def require_permission(page_key: str, action: str = "view"):
@@ -62,7 +62,7 @@ def require_permission(page_key: str, action: str = "view"):
         current_user=Depends(get_current_user),
         db: AsyncSession = Depends(get_db),
     ):
-        if current_user.role in ("admin",):
+        if current_user.role in ("admin", "superadmin"):
             return current_user
 
         from app.models.permission import RolePermission
