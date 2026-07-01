@@ -134,6 +134,45 @@ async def student_status_counts(
     }
 
 
+@router.get("/slim")
+async def list_users_slim(
+    role: Optional[UserRole] = Query(None),
+    branch_id: Optional[str] = Query(None),
+    in_group: Optional[bool] = Query(None),
+    student_status: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_admin),
+):
+    """Lightweight user list — returns only id and full_name for picker dropdowns."""
+    q = select(User.id, User.full_name)
+    if role:
+        q = q.where(User.role == role)
+    if search:
+        q = q.where(User.full_name.ilike(f"%{search}%") | User.phone.ilike(f"%{search}%"))
+    if student_status:
+        q = q.where(User.student_status == student_status)
+    if in_group is True:
+        q = q.where(User.id.in_(select(GroupStudent.student_id).distinct()))
+    elif in_group is False:
+        q = q.where(User.id.not_in(select(GroupStudent.student_id).distinct()))
+    if branch_id:
+        branch_uuid = uuid.UUID(branch_id)
+        if role == UserRole.student:
+            q = q.where(
+                (User.branch_id == branch_uuid) |
+                User.id.in_(
+                    select(GroupStudent.student_id)
+                    .join(Group, Group.id == GroupStudent.group_id)
+                    .where(Group.branch_id == branch_uuid)
+                )
+            )
+        else:
+            q = q.where(User.branch_id == branch_uuid)
+    result = await db.execute(q.order_by(User.full_name))
+    return [{"id": str(row.id), "full_name": row.full_name} for row in result.all()]
+
+
 @router.get("", response_model=List[UserOut])
 async def list_users(
     role: Optional[UserRole] = Query(None),
