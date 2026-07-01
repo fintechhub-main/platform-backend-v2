@@ -10,7 +10,7 @@ class UserCreate(BaseModel):
     phone: str
     email: Optional[str] = None
     password: str
-    role: UserRole = UserRole.student
+    role: str = UserRole.student.value
     branch_id: Optional[uuid.UUID] = None
 
 
@@ -18,7 +18,7 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
-    role: Optional[UserRole] = None
+    role: Optional[str] = None
     avatar: Optional[str] = None
     is_active: Optional[bool] = None
     student_status: Optional[str] = None

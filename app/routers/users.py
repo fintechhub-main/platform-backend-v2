@@ -208,14 +208,20 @@ async def create_user(data: UserCreate, db: AsyncSession = Depends(get_db), _=De
         email_existing = await db.execute(select(User).where(User.email == data.email))
         if email_existing.scalar_one_or_none():
             raise HTTPException(400, "Bu email allaqachon ro'yxatdan o'tgan")
-    user = User(**data.model_dump(exclude={"password"}), password_hash=hash_password(data.password))
-    if data.role == UserRole.student:
+    try:
+        role_val = UserRole(data.role)
+    except ValueError:
+        raise HTTPException(400, f"Noto'g'ri rol: {data.role}")
+    dump = data.model_dump(exclude={"password"})
+    dump["role"] = role_val
+    user = User(**dump, password_hash=hash_password(data.password))
+    if role_val == UserRole.student:
         user.student_status = "active"
     db.add(user)
     await db.flush()  # get user.id before commit
 
     # Auto-create staff profile for teacher/assistant_teacher/staff roles
-    if data.role in (UserRole.teacher, UserRole.assistant_teacher, UserRole.staff):
+    if role_val in (UserRole.teacher, UserRole.assistant_teacher, UserRole.staff):
         profile = StaffProfile(user_id=user.id)
         db.add(profile)
 
@@ -244,6 +250,11 @@ async def update_user(user_id: uuid.UUID, data: UserUpdate, db: AsyncSession = D
     if not user:
         raise HTTPException(404, "User not found")
     for key, val in data.model_dump(exclude_none=True).items():
+        if key == "role":
+            try:
+                val = UserRole(val)
+            except ValueError:
+                raise HTTPException(400, f"Noto'g'ri rol: {val}")
         setattr(user, key, val)
     await db.commit()
     await db.refresh(user)
