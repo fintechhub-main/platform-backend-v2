@@ -50,7 +50,7 @@ async def login(request: Request, data: LoginRequest, db: AsyncSession = Depends
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is deactivated")
 
-    access_token = create_access_token({"sub": str(user.id), "role": user.role.value})
+    access_token = create_access_token({"sub": str(user.id), "role": user.role.value, "tv": user.token_version})
     refresh_token = create_refresh_token({"sub": str(user.id)})
     return TokenResponse(
         access_token=access_token,
@@ -70,7 +70,7 @@ async def refresh_token(data: RefreshRequest, db: AsyncSession = Depends(get_db)
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found")
 
-    access_token = create_access_token({"sub": str(user.id), "role": user.role.value})
+    access_token = create_access_token({"sub": str(user.id), "role": user.role.value, "tv": user.token_version})
     new_refresh = create_refresh_token({"sub": str(user.id)})
     return TokenResponse(
         access_token=access_token,
@@ -92,5 +92,6 @@ async def change_password(
     if len(data.new_password) < 8:
         raise HTTPException(status_code=400, detail="Yangi parol kamida 8 ta belgi bo'lishi kerak")
     current_user.password_hash = hash_password(data.new_password)
+    current_user.token_version = (current_user.token_version or 1) + 1
     await db.commit()
     return {"ok": True, "message": "Parol muvaffaqiyatli o'zgartirildi"}
