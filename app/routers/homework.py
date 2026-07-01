@@ -8,7 +8,7 @@ from sqlalchemy import select
 from app.database import get_db
 from app.models.homework import HomeworkSubmission
 from app.schemas.homework import HomeworkCreate, HomeworkUpdate, HomeworkOut
-from app.dependencies import get_current_user, require_admin_or_teacher
+from app.dependencies import get_current_user, require_admin_or_teacher, require_permission
 
 router = APIRouter(prefix="/homework", tags=["homework"])
 
@@ -20,7 +20,7 @@ async def list_homework(
     skip: int = 0,
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("homework", "view")),
 ):
     q = select(HomeworkSubmission)
     if lesson_id:
@@ -35,7 +35,7 @@ async def list_homework(
 async def create_homework(
     data: HomeworkCreate,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_admin_or_teacher),
 ):
     submission = HomeworkSubmission(**data.model_dump())
     db.add(submission)

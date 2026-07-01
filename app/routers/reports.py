@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, case
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_permission
 from app.models.user import User, UserRole
 from app.models.group import Group, GroupStatus, GroupStudent
 from app.models.course import Course
@@ -27,7 +27,7 @@ _MONTH_UZ_SHORT = ["Yan", "Fev", "Mar", "Apr", "May", "Iyn", "Iyl", "Avg", "Sen"
 async def get_report_stats(
     branch_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("reports", "view")),
 ):
     today = date.today()
     _branch_uuid: Optional[uuid.UUID] = None

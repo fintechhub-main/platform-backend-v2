@@ -10,7 +10,7 @@ from app.database import get_db
 from app.models.attendance import Attendance
 from app.models.group import Group
 from app.schemas.attendance import AttendanceCreate, AttendanceUpdate, AttendanceOut, BulkAttendanceCreate
-from app.dependencies import get_current_user, require_admin_or_teacher
+from app.dependencies import get_current_user, require_admin_or_teacher, require_permission
 from app.utils.audit import write_log
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
@@ -25,7 +25,7 @@ async def list_attendance(
     status: str = Query(None),
     branch_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("attendance", "view")),
 ):
     if not group_id and not student_id and not date_from and not branch_id:
         raise HTTPException(status_code=400, detail="group_id, student_id yoki date_from kerak")

@@ -11,7 +11,7 @@ from app.schemas.practicum import (
     TeamCreate, TeamUpdate, TeamOut,
     TaskCreate, TaskUpdate, TaskOut,
 )
-from app.dependencies import get_current_user, require_admin
+from app.dependencies import get_current_user, require_admin, require_admin_or_teacher
 
 router = APIRouter(prefix="/practicum", tags=["practicum"])
 
@@ -114,7 +114,7 @@ async def list_tasks(
 async def create_task(
     data: TaskCreate,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_admin_or_teacher),
 ):
     task = PracticumTask(**data.model_dump())
     db.add(task)
@@ -128,7 +128,7 @@ async def update_task(
     task_id: uuid.UUID,
     data: TaskUpdate,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_admin_or_teacher),
 ):
     result = await db.execute(select(PracticumTask).where(PracticumTask.id == task_id))
     task = result.scalar_one_or_none()
@@ -145,7 +145,7 @@ async def update_task(
 async def delete_task(
     task_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_admin_or_teacher),
 ):
     result = await db.execute(select(PracticumTask).where(PracticumTask.id == task_id))
     task = result.scalar_one_or_none()

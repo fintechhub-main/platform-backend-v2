@@ -10,7 +10,7 @@ from app.models.group import Group, GroupStudent
 from app.models.user import User
 from app.schemas.group import GroupCreate, GroupUpdate, GroupOut, GroupDetailOut, GroupSlim
 from app.schemas.user import UserOut
-from app.dependencies import get_current_user, require_admin, require_admin_or_teacher
+from app.dependencies import get_current_user, require_admin, require_admin_or_teacher, require_permission
 from app.utils.attendance_generator import generate_attendance_for_group
 
 router = APIRouter(prefix="/groups", tags=["groups"])
@@ -40,7 +40,7 @@ async def list_groups(
     branch_id: Optional[str] = Query(None),
     skip: int = 0, limit: int = 50,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("groups", "view")),
 ):
     q = (
         select(Group)

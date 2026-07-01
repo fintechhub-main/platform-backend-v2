@@ -7,7 +7,7 @@ from typing import List, Optional
 from app.database import get_db
 from app.models.course import Course
 from app.schemas.course import CourseCreate, CourseUpdate, CourseOut
-from app.dependencies import get_current_user, require_admin
+from app.dependencies import get_current_user, require_admin, require_permission
 
 router = APIRouter(prefix="/courses", tags=["courses"])
 
@@ -19,7 +19,7 @@ async def list_courses(
     branch_id: Optional[str] = Query(None),
     skip: int = 0, limit: int = 100,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("courses", "view")),
 ):
     q = select(Course)
     if is_active is not None:

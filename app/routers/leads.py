@@ -7,7 +7,7 @@ from typing import List, Optional
 from app.database import get_db
 from app.models.student import Lead
 from app.schemas.lead import LeadCreate, LeadUpdate, LeadOut
-from app.dependencies import get_current_user, require_admin_or_teacher
+from app.dependencies import get_current_user, require_admin_or_teacher, require_permission
 
 router = APIRouter(prefix="/leads", tags=["leads"])
 
@@ -19,7 +19,7 @@ async def list_leads(
     skip: int = 0,
     limit: int = 200,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("crm", "view")),
 ):
     q = select(Lead)
     if stage:

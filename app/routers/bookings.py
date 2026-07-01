@@ -89,11 +89,15 @@ async def create_booking(data: BookingCreate, db: AsyncSession = Depends(get_db)
 
 
 @router.patch("/{booking_id}", response_model=BookingOut)
-async def update_booking(booking_id: uuid.UUID, data: BookingUpdate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+async def update_booking(booking_id: uuid.UUID, data: BookingUpdate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     result = await db.execute(select(Booking).where(Booking.id == booking_id))
     booking = result.scalar_one_or_none()
     if not booking:
         raise HTTPException(404, "Not found")
+    # Only admin or the booking owner (student/teacher) can update
+    is_owner = str(booking.student_id) == str(current_user.id) or str(booking.teacher_id) == str(current_user.id)
+    if not is_owner and str(current_user.role) != "admin":
+        raise HTTPException(403, "Ruxsat yo'q")
     for k, v in data.model_dump(exclude_none=True).items():
         setattr(booking, k, v)
     await db.commit()
