@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     DEEPSEEK_API_KEY: str = ""
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_BOT_USERNAME: str = "Malumotimbot"
+    TELEGRAM_WEBHOOK_SECRET: str = ""
 
     @property
     def cors_origins(self) -> List[str]:

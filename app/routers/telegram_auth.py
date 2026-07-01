@@ -1,8 +1,9 @@
 import secrets
 import httpx
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, Header, HTTPException, Request, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from typing import Optional
 
 from app.database import get_db
 from app.models.user import User, UserRole
@@ -42,7 +43,13 @@ async def telegram_status(session_id: str):
 
 
 @router.post("/telegram/webhook")
-async def telegram_webhook(request: Request, db: AsyncSession = Depends(get_db)):
+async def telegram_webhook(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    secret: Optional[str] = Header(None, alias="X-Telegram-Bot-Api-Secret-Token"),
+):
+    if settings.TELEGRAM_WEBHOOK_SECRET and secret != settings.TELEGRAM_WEBHOOK_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid webhook secret")
     try:
         data = await request.json()
     except Exception:
@@ -145,12 +152,12 @@ async def _send_phone_request(chat_id: int):
 
 async def set_webhook(base_url: str):
     webhook_url = f"{base_url}/api/v1/telegram/webhook"
+    payload: dict = {"url": webhook_url, "allowed_updates": ["message"]}
+    if settings.TELEGRAM_WEBHOOK_SECRET:
+        payload["secret_token"] = settings.TELEGRAM_WEBHOOK_SECRET
     async with httpx.AsyncClient(timeout=10) as client:
         try:
-            resp = await client.post(
-                f"{TELEGRAM_API}/setWebhook",
-                json={"url": webhook_url, "allowed_updates": ["message"]},
-            )
+            resp = await client.post(f"{TELEGRAM_API}/setWebhook", json=payload)
             return resp.json()
         except Exception as e:
             return {"error": str(e)}
