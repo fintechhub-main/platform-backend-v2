@@ -11,11 +11,13 @@ from app.dependencies import get_current_user, require_admin
 
 router = APIRouter(prefix="/permissions", tags=["permissions"])
 
-DEFAULT_ROLES = ['superadmin', 'admin', 'teacher', 'staff', 'student']
+DEFAULT_ROLES = ['superadmin', 'admin', 'manager', 'teacher', 'cashier', 'staff', 'student']
 DEFAULT_PAGES = [
-    'dashboard', 'students', 'groups', 'courses', 'attendance',
-    'payments', 'fines', 'vacancies', 'certificates', 'rooms',
-    'staff', 'crm', 'reports', 'settings',
+    'dashboard', 'students', 'teachers', 'groups', 'courses', 'attendance', 'grades',
+    'payments', 'fines', 'vacancies', 'certificates', 'rooms', 'coins',
+    'crm', 'events', 'assistant-teacher', 'practicum',
+    'exams', 'homework', 'reports', 'blog', 'notifications',
+    'logs', 'ai-teacher', 'resume', 'my-lessons', 'users', 'settings',
 ]
 
 
