@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_BOT_USERNAME: str = "Malumotimbot"
     TELEGRAM_WEBHOOK_SECRET: str = ""
+    SHOW_DOCS: bool = True
 
     @property
     def cors_origins(self) -> List[str]:

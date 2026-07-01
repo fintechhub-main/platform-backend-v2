@@ -63,7 +63,14 @@ async def lifespan(app: FastAPI):
     scheduler.shutdown()
 
 
-app = FastAPI(title="EduHub Platform API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(
+    title="EduHub Platform API",
+    version="1.0.0",
+    lifespan=lifespan,
+    docs_url="/docs" if settings.SHOW_DOCS else None,
+    redoc_url="/redoc" if settings.SHOW_DOCS else None,
+    openapi_url="/openapi.json" if settings.SHOW_DOCS else None,
+)
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
