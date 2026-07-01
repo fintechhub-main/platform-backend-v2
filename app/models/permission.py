@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import String, Boolean, UniqueConstraint
+from sqlalchemy import String, Boolean, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
@@ -8,9 +8,10 @@ from app.database import Base
 class CustomRole(Base):
     __tablename__ = "custom_roles"
 
-    key:   Mapped[str] = mapped_column(String(50), primary_key=True)
-    label: Mapped[str] = mapped_column(String(100))
-    color: Mapped[str] = mapped_column(String(20), default="#6366f1")
+    key:       Mapped[str]  = mapped_column(String(50), primary_key=True)
+    label:     Mapped[str]  = mapped_column(String(100))
+    color:     Mapped[str]  = mapped_column(String(20), default="#6366f1")
+    is_system: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
 
 class RolePermission(Base):

@@ -101,21 +101,8 @@ async def get_branch_matrix(db: AsyncSession = Depends(get_db), _=Depends(requir
 
 @router.get("/roles", response_model=List[CustomRoleOut])
 async def get_roles(db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
-    custom = (await db.execute(select(CustomRole))).scalars().all()
-    custom_keys = {r.key for r in custom}
-    defaults = [
-        CustomRoleOut(key=k, label=l, color=c, is_default=True)
-        for k, l, c in [
-            ("superadmin", "Super Admin", "#7c3aed"),
-            ("admin",      "Admin",       "#2563eb"),
-            ("manager",    "Menejer",     "#0891b2"),
-            ("teacher",    "O'qituvchi",  "#16a34a"),
-            ("cashier",    "Kassir",      "#d97706"),
-            ("staff",      "Xodim",       "#475569"),
-            ("student",    "Talaba",      "#6b7280"),
-        ] if k not in custom_keys
-    ]
-    return defaults + [CustomRoleOut(key=r.key, label=r.label, color=r.color, is_default=False) for r in custom]
+    roles = (await db.execute(select(CustomRole).order_by(CustomRole.is_system.desc(), CustomRole.key))).scalars().all()
+    return [CustomRoleOut(key=r.key, label=r.label, color=r.color, is_system=r.is_system) for r in roles]
 
 
 @router.post("/roles", response_model=CustomRoleOut)
@@ -123,18 +110,17 @@ async def create_role(item: CustomRoleCreate, db: AsyncSession = Depends(get_db)
     existing = await db.get(CustomRole, item.key)
     if existing:
         raise HTTPException(400, "Bu kalit allaqachon mavjud")
-    role = CustomRole(key=item.key, label=item.label, color=item.color)
+    role = CustomRole(key=item.key, label=item.label, color=item.color, is_system=False)
     db.add(role)
     await db.commit()
-    return CustomRoleOut(key=role.key, label=role.label, color=role.color, is_default=False)
+    return CustomRoleOut(key=role.key, label=role.label, color=role.color, is_system=False)
 
 
 @router.delete("/roles/{key}")
 async def delete_role(key: str, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
-    default_keys = {"superadmin", "admin", "manager", "teacher", "cashier", "staff", "student"}
-    if key in default_keys:
-        raise HTTPException(400, "Standart rolni o'chirib bo'lmaydi")
     role = await db.get(CustomRole, key)
+    if role and role.is_system:
+        raise HTTPException(400, "Tizim rolini o'chirib bo'lmaydi")
     if role:
         await db.delete(role)
     await db.execute(delete(RolePermission).where(RolePermission.role == key))

@@ -61,8 +61,8 @@ class CustomRoleCreate(BaseModel):
 
 
 class CustomRoleOut(BaseModel):
-    key:   str
-    label: str
-    color: str
-    is_default: bool = False
+    key:       str
+    label:     str
+    color:     str
+    is_system: bool = False
     model_config = {"from_attributes": True}
