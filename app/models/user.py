@@ -45,6 +45,7 @@ class User(Base):
     branch_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id", ondelete="SET NULL"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     token_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False, server_default="1")
+    fcm_token: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     taught_groups: Mapped[list["Group"]] = relationship("Group", back_populates="teacher", foreign_keys="Group.teacher_id")
     fines: Mapped[list["Fine"]] = relationship("Fine", back_populates="user")

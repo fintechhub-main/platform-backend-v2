@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, union, false
 from typing import List, Optional
+from pydantic import BaseModel
 
 from app.database import get_db
 from app.models.user import User, UserRole
@@ -27,6 +28,21 @@ async def update_me(data: UserUpdate, db: AsyncSession = Depends(get_db), curren
     await db.commit()
     await db.refresh(current_user)
     return current_user
+
+
+class FcmTokenIn(BaseModel):
+    token: str
+
+
+@router.post("/me/fcm-token", status_code=200)
+async def save_fcm_token(
+    body: FcmTokenIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    current_user.fcm_token = body.token
+    await db.commit()
+    return {"ok": True}
 
 
 def _build_user_query(role, search, is_active, student_status, in_group, branch_id, group_id=None, course_id=None):
