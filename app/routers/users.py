@@ -1,7 +1,7 @@
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, union, cast, String
+from sqlalchemy import select, func, union, false
 from typing import List, Optional
 
 from app.database import get_db
@@ -35,7 +35,7 @@ def _build_user_query(role, search, is_active, student_status, in_group, branch_
         try:
             q = q.where(User.role == UserRole(role))
         except ValueError:
-            q = q.where(cast(User.role, String) == role)
+            q = q.where(false())
     if search:
         q = q.where(User.full_name.ilike(f"%{search}%") | User.phone.ilike(f"%{search}%"))
     if is_active is not None:
@@ -153,7 +153,7 @@ async def list_users_slim(
         try:
             q = q.where(User.role == UserRole(role))
         except ValueError:
-            q = q.where(cast(User.role, String) == role)
+            q = q.where(false())
     if search:
         q = q.where(User.full_name.ilike(f"%{search}%") | User.phone.ilike(f"%{search}%"))
     if student_status:
