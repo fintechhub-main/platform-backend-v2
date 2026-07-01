@@ -33,3 +33,22 @@ class RolePermissionOut(BaseModel):
 class RolePermissionsMatrix(BaseModel):
     # {role: {page_key: {can_view, can_create, ...}}}
     matrix: Dict[str, Dict[str, dict]]
+
+
+class RoleBranchPermCreate(BaseModel):
+    role: str
+    branch_id: uuid.UUID
+    allowed: bool = True
+
+
+class RoleBranchPermOut(BaseModel):
+    id: uuid.UUID
+    role: str
+    branch_id: uuid.UUID
+    allowed: bool
+    model_config = {"from_attributes": True}
+
+
+class BranchPermMatrix(BaseModel):
+    # {role: [branch_id_str, ...]}  — only allowed branches listed
+    matrix: Dict[str, List[str]]

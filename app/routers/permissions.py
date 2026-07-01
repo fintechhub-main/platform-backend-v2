@@ -1,12 +1,12 @@
 import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, delete
 from typing import List
 
 from app.database import get_db
-from app.models.permission import RolePermission
-from app.schemas.permission import RolePermissionCreate, RolePermissionUpdate, RolePermissionOut, RolePermissionsMatrix
+from app.models.permission import RolePermission, RoleBranchPermission
+from app.schemas.permission import RolePermissionCreate, RolePermissionUpdate, RolePermissionOut, RolePermissionsMatrix, RoleBranchPermCreate, RoleBranchPermOut, BranchPermMatrix
 from app.dependencies import get_current_user, require_admin
 
 router = APIRouter(prefix="/permissions", tags=["permissions"])
@@ -79,3 +79,31 @@ async def save_role_permissions(
     for r in results:
         await db.refresh(r)
     return results
+
+
+@router.get("/branch-matrix", response_model=BranchPermMatrix)
+async def get_branch_matrix(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    result = await db.execute(select(RoleBranchPermission).where(RoleBranchPermission.allowed == True))
+    perms = result.scalars().all()
+    matrix = {}
+    for p in perms:
+        if p.role not in matrix:
+            matrix[p.role] = []
+        matrix[p.role].append(str(p.branch_id))
+    return BranchPermMatrix(matrix=matrix)
+
+
+@router.post("/branch-bulk")
+async def save_branch_permissions(
+    items: List[RoleBranchPermCreate],
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_admin),
+):
+    roles_in_request = list({item.role for item in items})
+    for role in roles_in_request:
+        await db.execute(delete(RoleBranchPermission).where(RoleBranchPermission.role == role))
+    for item in items:
+        if item.allowed:
+            db.add(RoleBranchPermission(**item.model_dump()))
+    await db.commit()
+    return {"saved": len([i for i in items if i.allowed])}
