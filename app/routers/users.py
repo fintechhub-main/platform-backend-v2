@@ -32,7 +32,10 @@ async def update_me(data: UserUpdate, db: AsyncSession = Depends(get_db), curren
 def _build_user_query(role, search, is_active, student_status, in_group, branch_id, group_id=None, course_id=None):
     q = select(User)
     if role:
-        q = q.where(User.role == role)
+        try:
+            q = q.where(User.role == UserRole(role))
+        except ValueError:
+            q = q.where(User.role == role)
     if search:
         q = q.where(User.full_name.ilike(f"%{search}%") | User.phone.ilike(f"%{search}%"))
     if is_active is not None:
@@ -53,7 +56,7 @@ def _build_user_query(role, search, is_active, student_status, in_group, branch_
         q = q.where(User.id.not_in(select(GroupStudent.student_id).distinct()))
     if branch_id:
         branch_uuid = uuid.UUID(branch_id)
-        if role == UserRole.student:
+        if role == 'student':
             q = q.where(
                 (User.branch_id == branch_uuid) |
                 User.id.in_(
@@ -62,7 +65,7 @@ def _build_user_query(role, search, is_active, student_status, in_group, branch_
                     .where(Group.branch_id == branch_uuid)
                 )
             )
-        elif role == UserRole.teacher:
+        elif role == 'teacher':
             q = q.where(
                 (User.branch_id == branch_uuid) |
                 User.id.in_(select(Group.teacher_id).where(Group.branch_id == branch_uuid))
@@ -87,7 +90,7 @@ def _build_user_query(role, search, is_active, student_status, in_group, branch_
 
 @router.get("/count")
 async def count_users(
-    role: Optional[UserRole] = Query(None),
+    role: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     is_active: Optional[bool] = Query(None),
     student_status: Optional[str] = Query(None),
@@ -136,7 +139,7 @@ async def student_status_counts(
 
 @router.get("/slim")
 async def list_users_slim(
-    role: Optional[UserRole] = Query(None),
+    role: Optional[str] = Query(None),
     branch_id: Optional[str] = Query(None),
     in_group: Optional[bool] = Query(None),
     student_status: Optional[str] = Query(None),
@@ -147,7 +150,10 @@ async def list_users_slim(
     """Lightweight user list — returns only id and full_name for picker dropdowns."""
     q = select(User.id, User.full_name)
     if role:
-        q = q.where(User.role == role)
+        try:
+            q = q.where(User.role == UserRole(role))
+        except ValueError:
+            q = q.where(User.role == role)
     if search:
         q = q.where(User.full_name.ilike(f"%{search}%") | User.phone.ilike(f"%{search}%"))
     if student_status:
@@ -158,7 +164,7 @@ async def list_users_slim(
         q = q.where(User.id.not_in(select(GroupStudent.student_id).distinct()))
     if branch_id:
         branch_uuid = uuid.UUID(branch_id)
-        if role == UserRole.student:
+        if role == 'student':
             q = q.where(
                 (User.branch_id == branch_uuid) |
                 User.id.in_(
@@ -175,7 +181,7 @@ async def list_users_slim(
 
 @router.get("", response_model=List[UserOut])
 async def list_users(
-    role: Optional[UserRole] = Query(None),
+    role: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     is_active: Optional[bool] = Query(None),
     student_status: Optional[str] = Query(None),
