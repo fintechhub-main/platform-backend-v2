@@ -10,7 +10,7 @@ from app.database import get_db
 from app.models.attendance import Attendance
 from app.models.group import Group
 from app.schemas.attendance import AttendanceCreate, AttendanceUpdate, AttendanceOut, BulkAttendanceCreate
-from app.dependencies import get_current_user, require_admin_or_teacher, require_permission
+from app.dependencies import get_current_user, require_permission
 from app.utils.audit import write_log
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
@@ -90,7 +90,7 @@ async def student_attendance_stats(
 
 
 @router.post("", response_model=AttendanceOut, status_code=201)
-async def create_attendance(data: AttendanceCreate, db: AsyncSession = Depends(get_db), current_user=Depends(require_admin_or_teacher)):
+async def create_attendance(data: AttendanceCreate, db: AsyncSession = Depends(get_db), current_user=Depends(require_permission("attendance", "create"))):
     att = Attendance(**data.model_dump())
     db.add(att)
     await write_log(
@@ -106,7 +106,7 @@ async def create_attendance(data: AttendanceCreate, db: AsyncSession = Depends(g
 
 
 @router.post("/bulk", response_model=List[AttendanceOut], status_code=201)
-async def bulk_attendance(data: BulkAttendanceCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin_or_teacher)):
+async def bulk_attendance(data: BulkAttendanceCreate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("attendance", "create"))):
     created = []
     for item in data.records:
         existing = await db.execute(
@@ -131,7 +131,7 @@ async def bulk_attendance(data: BulkAttendanceCreate, db: AsyncSession = Depends
 
 
 @router.patch("/{att_id}", response_model=AttendanceOut)
-async def update_attendance(att_id: uuid.UUID, data: AttendanceUpdate, db: AsyncSession = Depends(get_db), current_user=Depends(require_admin_or_teacher)):
+async def update_attendance(att_id: uuid.UUID, data: AttendanceUpdate, db: AsyncSession = Depends(get_db), current_user=Depends(require_permission("attendance", "update"))):
     result = await db.execute(select(Attendance).where(Attendance.id == att_id))
     att = result.scalar_one_or_none()
     if not att:

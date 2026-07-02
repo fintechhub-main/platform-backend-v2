@@ -15,7 +15,7 @@ from app.models.group import Group, GroupStudent
 from app.models.user import User
 from app.models.discount import Discount, DiscountStatus, DiscountType
 from app.schemas.payment import PaymentCreate, PaymentUpdate, PaymentOut, PaymentRefundCreate, PaymentRefundOut
-from app.dependencies import get_current_user, require_admin_or_teacher, require_permission, require_admin
+from app.dependencies import get_current_user, require_permission
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -310,7 +310,7 @@ async def list_payments(
 async def create_payment(
     data: PaymentCreate,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(require_admin_or_teacher),
+    current_user=Depends(require_permission("payments", "create")),
 ):
     import datetime as dt
     today = date.today()
@@ -352,7 +352,7 @@ async def update_payment(
     payment_id: uuid.UUID,
     data: PaymentUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(require_admin_or_teacher),
+    current_user=Depends(require_permission("payments", "update")),
 ):
     import datetime as dt
     result = await db.execute(select(Payment).where(Payment.id == payment_id))
@@ -391,7 +391,7 @@ async def refund_payment(
     payment_id: uuid.UUID,
     data: PaymentRefundCreate,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(require_admin_or_teacher),
+    current_user=Depends(require_permission("payments", "delete")),
 ):
     row = (await db.execute(select(Payment).where(Payment.id == payment_id))).scalar_one_or_none()
     if not row:
@@ -417,7 +417,7 @@ async def refund_payment(
 async def delete_payment(
     payment_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin_or_teacher),
+    _=Depends(require_permission("payments", "delete")),
 ):
     result = await db.execute(select(Payment).where(Payment.id == payment_id))
     payment = result.scalar_one_or_none()
@@ -690,7 +690,7 @@ async def teacher_salary(
     teacher_id: Optional[uuid.UUID] = Query(None),
     branch_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin_or_teacher),
+    _=Depends(require_permission("payments", "view")),
 ):
     """
     Calculate teacher salary for a given month.

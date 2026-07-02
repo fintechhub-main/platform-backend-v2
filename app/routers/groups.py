@@ -10,7 +10,7 @@ from app.models.group import Group, GroupStudent
 from app.models.user import User
 from app.schemas.group import GroupCreate, GroupUpdate, GroupOut, GroupDetailOut, GroupSlim
 from app.schemas.user import UserOut
-from app.dependencies import get_current_user, require_admin, require_admin_or_teacher, require_permission
+from app.dependencies import get_current_user, require_permission
 from app.utils.attendance_generator import generate_attendance_for_group
 
 router = APIRouter(prefix="/groups", tags=["groups"])
@@ -69,7 +69,7 @@ async def list_groups(
 
 
 @router.post("", response_model=GroupOut, status_code=201)
-async def create_group(data: GroupCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def create_group(data: GroupCreate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("groups", "create"))):
     group = Group(**data.model_dump())
     db.add(group)
     await db.commit()
@@ -154,7 +154,7 @@ async def get_group(group_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=D
 
 
 @router.patch("/{group_id}", response_model=GroupOut)
-async def update_group(group_id: uuid.UUID, data: GroupUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def update_group(group_id: uuid.UUID, data: GroupUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("groups", "update"))):
     result = await db.execute(select(Group).where(Group.id == group_id))
     group = result.scalar_one_or_none()
     if not group:
@@ -167,7 +167,7 @@ async def update_group(group_id: uuid.UUID, data: GroupUpdate, db: AsyncSession 
 
 
 @router.delete("/{group_id}", status_code=204)
-async def delete_group(group_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def delete_group(group_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_permission("groups", "delete"))):
     result = await db.execute(select(Group).where(Group.id == group_id))
     group = result.scalar_one_or_none()
     if not group:
@@ -200,7 +200,7 @@ async def group_students(
 
 
 @router.patch("/{group_id}/students/{student_id}/freeze", status_code=200)
-async def freeze_student(group_id: uuid.UUID, student_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def freeze_student(group_id: uuid.UUID, student_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_permission("groups", "update"))):
     result = await db.execute(select(GroupStudent).where(GroupStudent.group_id == group_id, GroupStudent.student_id == student_id))
     gs = result.scalar_one_or_none()
     if not gs:
@@ -211,7 +211,7 @@ async def freeze_student(group_id: uuid.UUID, student_id: uuid.UUID, db: AsyncSe
 
 
 @router.patch("/{group_id}/students/{student_id}/unfreeze", status_code=200)
-async def unfreeze_student(group_id: uuid.UUID, student_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def unfreeze_student(group_id: uuid.UUID, student_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_permission("groups", "update"))):
     result = await db.execute(select(GroupStudent).where(GroupStudent.group_id == group_id, GroupStudent.student_id == student_id))
     gs = result.scalar_one_or_none()
     if not gs:
@@ -222,7 +222,7 @@ async def unfreeze_student(group_id: uuid.UUID, student_id: uuid.UUID, db: Async
 
 
 @router.post("/{group_id}/students/{student_id}", status_code=201)
-async def add_student(group_id: uuid.UUID, student_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def add_student(group_id: uuid.UUID, student_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_permission("groups", "update"))):
     from datetime import date
     existing = await db.execute(
         select(GroupStudent).where(GroupStudent.group_id == group_id, GroupStudent.student_id == student_id)
@@ -259,7 +259,7 @@ async def add_student(group_id: uuid.UUID, student_id: uuid.UUID, db: AsyncSessi
 
 
 @router.delete("/{group_id}/students/{student_id}", status_code=204)
-async def remove_student(group_id: uuid.UUID, student_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def remove_student(group_id: uuid.UUID, student_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_permission("groups", "update"))):
     result = await db.execute(
         select(GroupStudent).where(GroupStudent.group_id == group_id, GroupStudent.student_id == student_id)
     )

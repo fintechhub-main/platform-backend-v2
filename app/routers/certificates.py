@@ -8,7 +8,7 @@ import uuid
 from app.database import get_db
 from app.models.certificate import Certificate
 from app.schemas.certificate import CertificateCreate, CertificateOut
-from app.dependencies import get_current_user, require_admin
+from app.dependencies import get_current_user, require_permission
 
 router = APIRouter(prefix="/certificates", tags=["certificates"])
 
@@ -18,7 +18,7 @@ async def list_certificates(
     student_id: Optional[uuid.UUID] = Query(None),
     course_id: Optional[uuid.UUID] = Query(None),
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("certificates", "view")),
 ):
     q = select(Certificate).options(selectinload(Certificate.student), selectinload(Certificate.course))
     if student_id:
@@ -30,7 +30,7 @@ async def list_certificates(
 
 
 @router.post("", response_model=CertificateOut, status_code=201)
-async def create_certificate(data: CertificateCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def create_certificate(data: CertificateCreate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("certificates", "create"))):
     serial = data.serial_number or f"EDU-{uuid.uuid4().hex[:8].upper()}"
     cert = Certificate(
         student_id=data.student_id,
@@ -64,7 +64,7 @@ async def get_certificate(cert_id: uuid.UUID, db: AsyncSession = Depends(get_db)
 
 
 @router.delete("/{cert_id}", status_code=204)
-async def delete_certificate(cert_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def delete_certificate(cert_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_permission("certificates", "delete"))):
     result = await db.execute(select(Certificate).where(Certificate.id == cert_id))
     cert = result.scalar_one_or_none()
     if not cert:

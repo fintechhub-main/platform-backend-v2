@@ -7,7 +7,7 @@ from typing import List, Optional
 from app.database import get_db
 from app.models.course import Course
 from app.schemas.course import CourseCreate, CourseUpdate, CourseOut
-from app.dependencies import get_current_user, require_admin, require_permission
+from app.dependencies import get_current_user, require_permission
 
 router = APIRouter(prefix="/courses", tags=["courses"])
 
@@ -33,7 +33,7 @@ async def list_courses(
 
 
 @router.post("", response_model=CourseOut, status_code=201)
-async def create_course(data: CourseCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def create_course(data: CourseCreate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("courses", "create"))):
     course = Course(**data.model_dump())
     db.add(course)
     await db.commit()
@@ -51,7 +51,7 @@ async def get_course(course_id: uuid.UUID, db: AsyncSession = Depends(get_db), _
 
 
 @router.patch("/{course_id}", response_model=CourseOut)
-async def update_course(course_id: uuid.UUID, data: CourseUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def update_course(course_id: uuid.UUID, data: CourseUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("courses", "update"))):
     result = await db.execute(select(Course).where(Course.id == course_id))
     course = result.scalar_one_or_none()
     if not course:
@@ -64,7 +64,7 @@ async def update_course(course_id: uuid.UUID, data: CourseUpdate, db: AsyncSessi
 
 
 @router.delete("/{course_id}", status_code=204)
-async def delete_course(course_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def delete_course(course_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_permission("courses", "delete"))):
     result = await db.execute(select(Course).where(Course.id == course_id))
     course = result.scalar_one_or_none()
     if not course:

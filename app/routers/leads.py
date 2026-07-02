@@ -7,7 +7,7 @@ from typing import List, Optional
 from app.database import get_db
 from app.models.student import Lead
 from app.schemas.lead import LeadCreate, LeadUpdate, LeadOut
-from app.dependencies import get_current_user, require_admin_or_teacher, require_permission
+from app.dependencies import get_current_user, require_permission
 
 router = APIRouter(prefix="/leads", tags=["leads"])
 
@@ -35,7 +35,7 @@ async def list_leads(
 
 
 @router.post("", response_model=LeadOut, status_code=201)
-async def create_lead(data: LeadCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin_or_teacher)):
+async def create_lead(data: LeadCreate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("crm", "create"))):
     lead = Lead(**data.model_dump())
     db.add(lead)
     await db.commit()
@@ -53,7 +53,7 @@ async def get_lead(lead_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Dep
 
 
 @router.patch("/{lead_id}", response_model=LeadOut)
-async def update_lead(lead_id: uuid.UUID, data: LeadUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_admin_or_teacher)):
+async def update_lead(lead_id: uuid.UUID, data: LeadUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("crm", "update"))):
     result = await db.execute(select(Lead).where(Lead.id == lead_id))
     lead = result.scalar_one_or_none()
     if not lead:
@@ -66,7 +66,7 @@ async def update_lead(lead_id: uuid.UUID, data: LeadUpdate, db: AsyncSession = D
 
 
 @router.delete("/{lead_id}", status_code=204)
-async def delete_lead(lead_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_admin_or_teacher)):
+async def delete_lead(lead_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_permission("crm", "delete"))):
     result = await db.execute(select(Lead).where(Lead.id == lead_id))
     lead = result.scalar_one_or_none()
     if not lead:

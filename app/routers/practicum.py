@@ -11,7 +11,7 @@ from app.schemas.practicum import (
     TeamCreate, TeamUpdate, TeamOut,
     TaskCreate, TaskUpdate, TaskOut,
 )
-from app.dependencies import get_current_user, require_admin, require_admin_or_teacher
+from app.dependencies import get_current_user, require_permission
 
 router = APIRouter(prefix="/practicum", tags=["practicum"])
 
@@ -22,7 +22,7 @@ router = APIRouter(prefix="/practicum", tags=["practicum"])
 async def list_teams(
     branch_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("practicum", "view")),
 ):
     q = select(PracticumTeam).options(selectinload(PracticumTeam.tasks))
     if branch_id:
@@ -40,7 +40,7 @@ async def list_teams(
 async def create_team(
     data: TeamCreate,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin),
+    _=Depends(require_permission("practicum", "create")),
 ):
     team = PracticumTeam(**data.model_dump())
     db.add(team)
@@ -60,7 +60,7 @@ async def update_team(
     team_id: uuid.UUID,
     data: TeamUpdate,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin),
+    _=Depends(require_permission("practicum", "update")),
 ):
     result = await db.execute(
         select(PracticumTeam)
@@ -86,7 +86,7 @@ async def update_team(
 async def delete_team(
     team_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin),
+    _=Depends(require_permission("practicum", "delete")),
 ):
     result = await db.execute(select(PracticumTeam).where(PracticumTeam.id == team_id))
     team = result.scalar_one_or_none()
@@ -100,7 +100,7 @@ async def delete_team(
 async def list_tasks(
     team_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("practicum", "view")),
 ):
     result = await db.execute(
         select(PracticumTask).where(PracticumTask.team_id == team_id)
@@ -114,7 +114,7 @@ async def list_tasks(
 async def create_task(
     data: TaskCreate,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin_or_teacher),
+    _=Depends(require_permission("practicum", "create")),
 ):
     task = PracticumTask(**data.model_dump())
     db.add(task)
@@ -128,7 +128,7 @@ async def update_task(
     task_id: uuid.UUID,
     data: TaskUpdate,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin_or_teacher),
+    _=Depends(require_permission("practicum", "update")),
 ):
     result = await db.execute(select(PracticumTask).where(PracticumTask.id == task_id))
     task = result.scalar_one_or_none()
@@ -145,7 +145,7 @@ async def update_task(
 async def delete_task(
     task_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin_or_teacher),
+    _=Depends(require_permission("practicum", "delete")),
 ):
     result = await db.execute(select(PracticumTask).where(PracticumTask.id == task_id))
     task = result.scalar_one_or_none()

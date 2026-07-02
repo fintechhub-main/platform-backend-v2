@@ -8,7 +8,7 @@ from sqlalchemy import select
 from app.database import get_db
 from app.models.exam import Exam, ExamSubmission
 from app.schemas.exam import ExamCreate, ExamUpdate, ExamOut, ExamSubmissionCreate, ExamSubmissionOut
-from app.dependencies import get_current_user, require_admin_or_teacher, require_permission
+from app.dependencies import get_current_user, require_permission
 
 router = APIRouter(prefix="/exams", tags=["exams"])
 
@@ -32,7 +32,7 @@ async def list_exams(
 async def create_exam(
     data: ExamCreate,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin_or_teacher),
+    _=Depends(require_permission("exams", "create")),
 ):
     exam = Exam(**data.model_dump())
     db.add(exam)
@@ -75,7 +75,7 @@ async def update_exam(
     exam_id: uuid.UUID,
     data: ExamUpdate,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin_or_teacher),
+    _=Depends(require_permission("exams", "update")),
 ):
     result = await db.execute(select(Exam).where(Exam.id == exam_id))
     exam = result.scalar_one_or_none()
@@ -92,7 +92,7 @@ async def update_exam(
 async def delete_exam(
     exam_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin_or_teacher),
+    _=Depends(require_permission("exams", "delete")),
 ):
     result = await db.execute(select(Exam).where(Exam.id == exam_id))
     exam = result.scalar_one_or_none()

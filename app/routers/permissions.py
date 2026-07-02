@@ -25,6 +25,32 @@ DEFAULT_PAGES = [
 ]
 
 
+@router.get("/my")
+async def my_permissions(
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Returns the permission matrix for the currently logged-in user's role."""
+    role = str(current_user.role.value if hasattr(current_user.role, "value") else current_user.role)
+
+    if role == "superadmin":
+        return {page: {"can_view": True, "can_create": True, "can_update": True, "can_delete": True} for page in DEFAULT_PAGES}
+
+    result = await db.execute(select(RolePermission).where(RolePermission.role == role))
+    saved = {p.page_key: p for p in result.scalars().all()}
+
+    out = {}
+    for page in DEFAULT_PAGES:
+        if page in saved:
+            p = saved[page]
+            out[page] = {"can_view": p.can_view, "can_create": p.can_create, "can_update": p.can_update, "can_delete": p.can_delete}
+        elif role == "admin":
+            out[page] = {"can_view": True, "can_create": True, "can_update": True, "can_delete": False}
+        else:
+            out[page] = {"can_view": False, "can_create": False, "can_update": False, "can_delete": False}
+    return out
+
+
 @router.get("/matrix", response_model=RolePermissionsMatrix)
 async def get_matrix(db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
     result = await db.execute(select(RolePermission))

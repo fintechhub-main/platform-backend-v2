@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, or_
 
 from app.database import get_db
-from app.dependencies import get_current_user, require_admin
+from app.dependencies import get_current_user, require_permission
 from app.models.audit_log import AuditLog
 
 router = APIRouter(prefix="/logs", tags=["logs"])
@@ -25,7 +25,7 @@ async def list_logs(
     skip: int = 0,
     limit: int = 500,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin),
+    _=Depends(require_permission("logs", "view")),
 ):
     q = select(AuditLog).order_by(desc(AuditLog.created_at))
     if action:

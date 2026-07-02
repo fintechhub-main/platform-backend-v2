@@ -10,7 +10,7 @@ from app.models.user import User, UserRole
 from app.models.group import Group, GroupStudent
 from app.models.staff_profile import StaffProfile
 from app.schemas.user import UserCreate, UserUpdate, UserOut
-from app.dependencies import get_current_user, require_admin, require_permission
+from app.dependencies import get_current_user, require_permission
 from app.utils.auth import hash_password
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -126,7 +126,7 @@ async def count_users(
 async def student_status_counts(
     branch_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin),
+    _=Depends(require_permission("students", "view")),
 ):
     q = select(User.student_status, func.count(User.id)).where(User.role == UserRole.student)
     if branch_id:
@@ -161,7 +161,7 @@ async def list_users_slim(
     student_status: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin),
+    _=Depends(require_permission("users", "view")),
 ):
     """Lightweight user list — returns only id and full_name for picker dropdowns."""
     q = select(User.id, User.full_name)
@@ -208,7 +208,7 @@ async def list_users(
     skip: int = 0,
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin),
+    _=Depends(require_permission("users", "view")),
 ):
     q = _build_user_query(role, search, is_active, student_status, in_group, branch_id, group_id, course_id)
     result = await db.execute(q.offset(skip).limit(limit))
@@ -216,7 +216,7 @@ async def list_users(
 
 
 @router.post("", response_model=UserOut, status_code=201)
-async def create_user(data: UserCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def create_user(data: UserCreate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("users", "create"))):
     existing = await db.execute(select(User).where(User.phone == data.phone))
     if existing.scalar_one_or_none():
         raise HTTPException(400, "Bu telefon raqam allaqachon ro'yxatdan o'tgan")
@@ -260,7 +260,7 @@ async def get_user(user_id: uuid.UUID, db: AsyncSession = Depends(get_db), curre
 
 
 @router.patch("/{user_id}", response_model=UserOut)
-async def update_user(user_id: uuid.UUID, data: UserUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def update_user(user_id: uuid.UUID, data: UserUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("users", "update"))):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
@@ -278,7 +278,7 @@ async def update_user(user_id: uuid.UUID, data: UserUpdate, db: AsyncSession = D
 
 
 @router.delete("/{user_id}", status_code=204)
-async def delete_user(user_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def delete_user(user_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_permission("users", "delete"))):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:

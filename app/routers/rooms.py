@@ -8,7 +8,7 @@ from typing import List, Optional
 from app.database import get_db
 from app.models.room import Room, RoomStatus, RoomType
 from app.schemas.room import RoomCreate, RoomUpdate, RoomOut
-from app.dependencies import get_current_user, require_admin
+from app.dependencies import get_current_user, require_permission
 
 router = APIRouter(prefix="/rooms", tags=["rooms"])
 
@@ -30,7 +30,7 @@ async def list_rooms(
     search: Optional[str] = Query(None),
     branch_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("rooms", "view")),
 ):
     q = select(Room)
     if status:
@@ -48,7 +48,7 @@ async def list_rooms(
 
 
 @router.post("", response_model=RoomOut, status_code=201)
-async def create_room(data: RoomCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def create_room(data: RoomCreate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("rooms", "create"))):
     existing = await db.execute(select(Room).where(Room.code == data.code))
     if existing.scalar_one_or_none():
         raise HTTPException(400, f"Xona kodi '{data.code}' allaqachon mavjud")
@@ -70,7 +70,7 @@ async def get_room(room_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Dep
 
 
 @router.patch("/{room_id}", response_model=RoomOut)
-async def update_room(room_id: uuid.UUID, data: RoomUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def update_room(room_id: uuid.UUID, data: RoomUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("rooms", "update"))):
     result = await db.execute(select(Room).where(Room.id == room_id))
     room = result.scalar_one_or_none()
     if not room:
@@ -84,7 +84,7 @@ async def update_room(room_id: uuid.UUID, data: RoomUpdate, db: AsyncSession = D
 
 
 @router.delete("/{room_id}", status_code=204)
-async def delete_room(room_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def delete_room(room_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_permission("rooms", "delete"))):
     result = await db.execute(select(Room).where(Room.id == room_id))
     room = result.scalar_one_or_none()
     if not room:

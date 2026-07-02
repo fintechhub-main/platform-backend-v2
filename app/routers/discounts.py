@@ -8,7 +8,7 @@ from app.database import get_db
 from app.models.discount import Discount
 from app.models.user import User
 from app.schemas.discount import DiscountCreate, DiscountUpdate, DiscountOut
-from app.dependencies import get_current_user, require_admin
+from app.dependencies import require_permission
 
 router = APIRouter(prefix="/discounts", tags=["discounts"])
 
@@ -19,7 +19,7 @@ async def list_discounts(
     group_id: Optional[uuid.UUID] = Query(None),
     branch_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("payments", "view")),
 ):
     from app.models.group import Group
     q = (
@@ -46,7 +46,7 @@ async def list_discounts(
 
 
 @router.post("", response_model=DiscountOut, status_code=201)
-async def create_discount(data: DiscountCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def create_discount(data: DiscountCreate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("payments", "create"))):
     discount = Discount(**data.model_dump())
     db.add(discount)
     await db.commit()
@@ -55,7 +55,7 @@ async def create_discount(data: DiscountCreate, db: AsyncSession = Depends(get_d
 
 
 @router.patch("/{discount_id}", response_model=DiscountOut)
-async def update_discount(discount_id: uuid.UUID, data: DiscountUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def update_discount(discount_id: uuid.UUID, data: DiscountUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("payments", "update"))):
     result = await db.execute(select(Discount).where(Discount.id == discount_id))
     discount = result.scalar_one_or_none()
     if not discount:
@@ -68,7 +68,7 @@ async def update_discount(discount_id: uuid.UUID, data: DiscountUpdate, db: Asyn
 
 
 @router.delete("/{discount_id}", status_code=204)
-async def delete_discount(discount_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def delete_discount(discount_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_permission("payments", "delete"))):
     result = await db.execute(select(Discount).where(Discount.id == discount_id))
     discount = result.scalar_one_or_none()
     if not discount:

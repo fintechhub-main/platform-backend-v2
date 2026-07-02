@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
-from app.dependencies import get_current_user, require_admin
+from app.dependencies import get_current_user, require_permission
 from app.models.ai_settings import AISettings
 from app.services import ai_service
 
@@ -50,7 +50,7 @@ class SettingsUpdate(BaseModel):
 async def ai_chat(
     body: ChatRequest,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("ai-teacher", "create")),
 ):
     system_prompt = PERSONA_PROMPTS.get(body.persona or "general", PERSONA_PROMPTS["general"])
     messages = [{"role": m.role, "content": m.content} for m in body.messages]
@@ -61,7 +61,7 @@ async def ai_chat(
 @router.get("/settings")
 async def get_ai_settings(
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("ai-teacher", "view")),
 ):
     settings = await ai_service.get_settings(db)
     if not settings:
@@ -92,7 +92,7 @@ async def get_ai_settings(
 async def update_ai_settings(
     body: SettingsUpdate,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin),
+    _=Depends(require_permission("ai-teacher", "update")),
 ):
     settings = await ai_service.get_settings(db)
     if not settings:

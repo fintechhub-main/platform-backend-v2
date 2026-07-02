@@ -9,7 +9,7 @@ from app.database import get_db
 from app.models.coin import CoinTransaction
 from app.models.group import Group, GroupStudent
 from app.schemas.coin import CoinCreate, CoinOut
-from app.dependencies import get_current_user, require_admin_or_teacher
+from app.dependencies import get_current_user, require_permission
 
 router = APIRouter(prefix="/coins", tags=["coins"])
 
@@ -21,7 +21,7 @@ async def list_coin_transactions(
     skip: int = 0,
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("coins", "view")),
 ):
     q = select(CoinTransaction)
     if student_id:
@@ -41,7 +41,7 @@ async def list_coin_transactions(
 async def create_coin_transaction(
     data: CoinCreate,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin_or_teacher),
+    _=Depends(require_permission("coins", "create")),
 ):
     txn = CoinTransaction(**data.model_dump())
     db.add(txn)

@@ -10,7 +10,7 @@ from app.models.fine import Fine
 from app.models.user import User, UserRole
 from app.models.group import Group, GroupStudent
 from app.schemas.fine import FineCreate, FineUpdate, FineOut
-from app.dependencies import get_current_user, require_admin
+from app.dependencies import require_permission
 
 router = APIRouter(prefix="/fines", tags=["fines"])
 
@@ -22,7 +22,7 @@ async def list_fines(
     branch_id: Optional[str] = Query(None),
     skip: int = 0, limit: int = 50,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("fines", "view")),
 ):
     q = select(Fine).options(selectinload(Fine.user))
     if role:
@@ -43,7 +43,7 @@ async def list_fines(
 
 
 @router.post("", response_model=FineOut, status_code=201)
-async def create_fine(data: FineCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def create_fine(data: FineCreate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("fines", "create"))):
     fine = Fine(**data.model_dump())
     db.add(fine)
     await db.commit()
@@ -53,7 +53,7 @@ async def create_fine(data: FineCreate, db: AsyncSession = Depends(get_db), _=De
 
 
 @router.patch("/{fine_id}", response_model=FineOut)
-async def update_fine(fine_id: uuid.UUID, data: FineUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def update_fine(fine_id: uuid.UUID, data: FineUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("fines", "update"))):
     result = await db.execute(select(Fine).where(Fine.id == fine_id))
     fine = result.scalar_one_or_none()
     if not fine:
@@ -66,7 +66,7 @@ async def update_fine(fine_id: uuid.UUID, data: FineUpdate, db: AsyncSession = D
 
 
 @router.delete("/{fine_id}", status_code=204)
-async def delete_fine(fine_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def delete_fine(fine_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_permission("fines", "delete"))):
     result = await db.execute(select(Fine).where(Fine.id == fine_id))
     fine = result.scalar_one_or_none()
     if not fine:

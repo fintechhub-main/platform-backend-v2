@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.models.event import Event, EventRegistration
 from app.models.user import User
-from app.dependencies import get_current_user, require_admin
+from app.dependencies import get_current_user, require_permission
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -60,7 +60,7 @@ async def list_events(
     branch_id: Optional[str] = Query(None),
     active_only: bool = Query(False),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("events", "view")),
 ):
     q = select(Event)
     if branch_id:
@@ -89,7 +89,7 @@ async def list_events(
 
 
 @router.post("", status_code=201)
-async def create_event(data: EventCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def create_event(data: EventCreate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("events", "create"))):
     from datetime import date
     event = Event(
         title=data.title,
@@ -109,7 +109,7 @@ async def create_event(data: EventCreate, db: AsyncSession = Depends(get_db), _=
 
 
 @router.patch("/{event_id}")
-async def update_event(event_id: uuid.UUID, data: EventUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def update_event(event_id: uuid.UUID, data: EventUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("events", "update"))):
     from datetime import date
     result = await db.execute(select(Event).where(Event.id == event_id))
     event = result.scalar_one_or_none()
@@ -127,7 +127,7 @@ async def update_event(event_id: uuid.UUID, data: EventUpdate, db: AsyncSession 
 
 
 @router.delete("/{event_id}", status_code=204)
-async def delete_event(event_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def delete_event(event_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_permission("events", "delete"))):
     result = await db.execute(select(Event).where(Event.id == event_id))
     event = result.scalar_one_or_none()
     if not event:

@@ -2,7 +2,7 @@ import uuid
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_
 
 from app.database import get_db
 from app.utils.auth import decode_token
@@ -53,31 +53,40 @@ require_admin_or_cashier   = require_roles("admin", "superadmin", "cashier")
 require_staff_roles        = require_roles("admin", "superadmin", "manager", "teacher", "cashier", "staff", "assistant_teacher")
 
 
+def _get_role_str(user) -> str:
+    return str(user.role.value if hasattr(user.role, "value") else user.role)
+
+
 def require_permission(page_key: str, action: str = "view"):
     """
-    RBAC dependency: checks RolePermission table for the current user's role.
-    Admins always pass. For others — checks DB; if no rule saved, denies access.
+    Dynamic RBAC: only superadmin bypasses unconditionally.
+    admin defaults to full access when no DB row exists (can_delete excluded).
+    All other roles require an explicit row in role_permissions.
     """
     async def checker(
         current_user=Depends(get_current_user),
         db: AsyncSession = Depends(get_db),
     ):
-        if current_user.role in ("admin", "superadmin"):
+        role = _get_role_str(current_user)
+
+        if role == "superadmin":
             return current_user
 
         from app.models.permission import RolePermission
-        from sqlalchemy import select as sa_select, and_
 
         result = await db.execute(
-            sa_select(RolePermission).where(
-                and_(
-                    RolePermission.role == str(current_user.role.value if hasattr(current_user.role, "value") else current_user.role),
-                    RolePermission.page_key == page_key,
-                )
+            select(RolePermission).where(
+                and_(RolePermission.role == role, RolePermission.page_key == page_key)
             )
         )
         perm = result.scalar_one_or_none()
+
         if perm is None:
+            # admin defaults: full access except delete
+            if role == "admin":
+                if action == "delete":
+                    raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+                return current_user
             raise HTTPException(status_code=403, detail="Ruxsat yo'q")
 
         allowed = {

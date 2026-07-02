@@ -12,7 +12,7 @@ from app.models.payment import Payment, PaymentRefund
 from app.models.attendance import Attendance, AttendanceStatus
 from app.models.student import Lead
 from app.models.branch import Branch
-from app.dependencies import get_current_user, require_admin_or_manager
+from app.dependencies import get_current_user, require_permission
 from app.routers.payments import _billing_periods
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -25,7 +25,7 @@ _WEEK_UZ_SHORT  = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"]
 async def get_stats(
     branch_id: str | None = None,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin_or_manager),
+    _=Depends(require_permission("dashboard", "view")),
 ):
     import uuid as _uuid
     _branch_uuid = _uuid.UUID(branch_id) if branch_id else None

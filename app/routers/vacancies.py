@@ -11,7 +11,7 @@ from app.schemas.vacancy import (
     VacancyCreate, VacancyUpdate, VacancyOut,
     ApplicantCreate, ApplicantUpdate, ApplicantOut,
 )
-from app.dependencies import get_current_user, require_admin
+from app.dependencies import get_current_user, require_permission
 
 router = APIRouter(prefix="/vacancies", tags=["vacancies"])
 
@@ -20,7 +20,7 @@ router = APIRouter(prefix="/vacancies", tags=["vacancies"])
 async def list_vacancies(
     is_active: Optional[bool] = Query(None),
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("vacancies", "view")),
 ):
     q = select(Vacancy)
     if is_active is not None:
@@ -42,7 +42,7 @@ async def list_vacancies(
 
 
 @router.post("", response_model=VacancyOut, status_code=201)
-async def create_vacancy(data: VacancyCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def create_vacancy(data: VacancyCreate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("vacancies", "create"))):
     vacancy = Vacancy(**data.model_dump())
     db.add(vacancy)
     await db.commit()
@@ -51,7 +51,7 @@ async def create_vacancy(data: VacancyCreate, db: AsyncSession = Depends(get_db)
 
 
 @router.patch("/{vacancy_id}", response_model=VacancyOut)
-async def update_vacancy(vacancy_id: uuid.UUID, data: VacancyUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def update_vacancy(vacancy_id: uuid.UUID, data: VacancyUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("vacancies", "update"))):
     result = await db.execute(select(Vacancy).where(Vacancy.id == vacancy_id))
     v = result.scalar_one_or_none()
     if not v:
@@ -64,7 +64,7 @@ async def update_vacancy(vacancy_id: uuid.UUID, data: VacancyUpdate, db: AsyncSe
 
 
 @router.delete("/{vacancy_id}", status_code=204)
-async def delete_vacancy(vacancy_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def delete_vacancy(vacancy_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_permission("vacancies", "delete"))):
     result = await db.execute(select(Vacancy).where(Vacancy.id == vacancy_id))
     v = result.scalar_one_or_none()
     if not v:
@@ -93,7 +93,7 @@ async def create_applicant(data: ApplicantCreate, db: AsyncSession = Depends(get
 
 
 @router.patch("/applicants/{applicant_id}", response_model=ApplicantOut)
-async def update_applicant(applicant_id: uuid.UUID, data: ApplicantUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def update_applicant(applicant_id: uuid.UUID, data: ApplicantUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("vacancies", "update"))):
     result = await db.execute(select(VacancyApplicant).where(VacancyApplicant.id == applicant_id))
     a = result.scalar_one_or_none()
     if not a:

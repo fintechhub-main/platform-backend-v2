@@ -13,7 +13,7 @@ from app.schemas.lesson import (
     LessonCreate, LessonUpdate, LessonOut,
     QuizQuestionCreate, QuizQuestionUpdate, QuizQuestionOut,
 )
-from app.dependencies import get_current_user, require_admin_or_teacher
+from app.dependencies import get_current_user, require_permission
 
 router = APIRouter(prefix="/lessons", tags=["lessons"])
 
@@ -36,7 +36,7 @@ async def list_modules(
 
 
 @router.post("/modules", response_model=ModuleOut, status_code=201)
-async def create_module(data: ModuleCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin_or_teacher)):
+async def create_module(data: ModuleCreate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("courses", "create"))):
     module = Module(**data.model_dump())
     db.add(module)
     await db.commit()
@@ -45,7 +45,7 @@ async def create_module(data: ModuleCreate, db: AsyncSession = Depends(get_db), 
 
 
 @router.patch("/modules/{module_id}", response_model=ModuleOut)
-async def update_module(module_id: uuid.UUID, data: ModuleUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_admin_or_teacher)):
+async def update_module(module_id: uuid.UUID, data: ModuleUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("courses", "update"))):
     result = await db.execute(select(Module).where(Module.id == module_id))
     module = result.scalar_one_or_none()
     if not module:
@@ -58,7 +58,7 @@ async def update_module(module_id: uuid.UUID, data: ModuleUpdate, db: AsyncSessi
 
 
 @router.delete("/modules/{module_id}", status_code=204)
-async def delete_module(module_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_admin_or_teacher)):
+async def delete_module(module_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_permission("courses", "delete"))):
     result = await db.execute(select(Module).where(Module.id == module_id))
     module = result.scalar_one_or_none()
     if not module:
@@ -70,7 +70,7 @@ async def delete_module(module_id: uuid.UUID, db: AsyncSession = Depends(get_db)
 # ── Lessons ───────────────────────────────────────────────────────────────────
 
 @router.post("", response_model=LessonOut, status_code=201)
-async def create_lesson(data: LessonCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin_or_teacher)):
+async def create_lesson(data: LessonCreate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("courses", "create"))):
     lesson = Lesson(**data.model_dump())
     db.add(lesson)
     await db.commit()
@@ -88,7 +88,7 @@ async def get_lesson(lesson_id: uuid.UUID, db: AsyncSession = Depends(get_db), _
 
 
 @router.patch("/{lesson_id}", response_model=LessonOut)
-async def update_lesson(lesson_id: uuid.UUID, data: LessonUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_admin_or_teacher)):
+async def update_lesson(lesson_id: uuid.UUID, data: LessonUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("courses", "update"))):
     result = await db.execute(select(Lesson).where(Lesson.id == lesson_id))
     lesson = result.scalar_one_or_none()
     if not lesson:
@@ -101,7 +101,7 @@ async def update_lesson(lesson_id: uuid.UUID, data: LessonUpdate, db: AsyncSessi
 
 
 @router.delete("/{lesson_id}", status_code=204)
-async def delete_lesson(lesson_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_admin_or_teacher)):
+async def delete_lesson(lesson_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_permission("courses", "delete"))):
     result = await db.execute(select(Lesson).where(Lesson.id == lesson_id))
     lesson = result.scalar_one_or_none()
     if not lesson:
@@ -123,7 +123,7 @@ async def list_quiz(lesson_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=
 @router.post("/{lesson_id}/quiz", response_model=QuizQuestionOut, status_code=201)
 async def create_quiz_question(
     lesson_id: uuid.UUID, data: QuizQuestionCreate,
-    db: AsyncSession = Depends(get_db), _=Depends(require_admin_or_teacher),
+    db: AsyncSession = Depends(get_db), _=Depends(require_permission("courses", "create")),
 ):
     q = QuizQuestion(
         lesson_id=lesson_id,
@@ -141,7 +141,7 @@ async def create_quiz_question(
 @router.patch("/quiz/{question_id}", response_model=QuizQuestionOut)
 async def update_quiz_question(
     question_id: uuid.UUID, data: QuizQuestionUpdate,
-    db: AsyncSession = Depends(get_db), _=Depends(require_admin_or_teacher),
+    db: AsyncSession = Depends(get_db), _=Depends(require_permission("courses", "update")),
 ):
     result = await db.execute(select(QuizQuestion).where(QuizQuestion.id == question_id))
     q = result.scalar_one_or_none()
@@ -163,7 +163,7 @@ async def update_quiz_question(
 @router.delete("/quiz/{question_id}", status_code=204)
 async def delete_quiz_question(
     question_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db), _=Depends(require_admin_or_teacher),
+    db: AsyncSession = Depends(get_db), _=Depends(require_permission("courses", "delete")),
 ):
     result = await db.execute(select(QuizQuestion).where(QuizQuestion.id == question_id))
     q = result.scalar_one_or_none()
