@@ -10,7 +10,8 @@ from app.database import get_db
 from app.models.booking import Booking, BookingStatus
 from app.models.user import User
 from app.schemas.booking import BookingCreate, BookingUpdate, BookingOut, BusySlotsRequest, BusySlotsResponse
-from app.dependencies import get_current_user, require_admin
+from app.models.user import UserRole
+from app.dependencies import get_current_user, require_admin, require_permission
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
@@ -42,12 +43,12 @@ async def list_bookings(
     status: Optional[BookingStatus] = Query(None),
     branch_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("bookings", "view")),
 ):
     q = select(Booking).options(selectinload(Booking.teacher), selectinload(Booking.student))
-    if current_user.role == "student":
+    if current_user.role == UserRole.student:
         q = q.where(Booking.student_id == current_user.id)
-    elif current_user.role in ("teacher", "assistant_teacher"):
+    elif current_user.role in (UserRole.teacher, UserRole.assistant_teacher):
         q = q.where(Booking.teacher_id == current_user.id)
     else:
         if teacher_id:
@@ -63,7 +64,7 @@ async def list_bookings(
 
 
 @router.post("", response_model=BookingOut, status_code=201)
-async def create_booking(data: BookingCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def create_booking(data: BookingCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_permission("bookings", "create"))):
     # check slot is free
     existing = await db.execute(
         select(Booking).where(
@@ -89,14 +90,14 @@ async def create_booking(data: BookingCreate, db: AsyncSession = Depends(get_db)
 
 
 @router.patch("/{booking_id}", response_model=BookingOut)
-async def update_booking(booking_id: uuid.UUID, data: BookingUpdate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def update_booking(booking_id: uuid.UUID, data: BookingUpdate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_permission("bookings", "update"))):
     result = await db.execute(select(Booking).where(Booking.id == booking_id))
     booking = result.scalar_one_or_none()
     if not booking:
         raise HTTPException(404, "Not found")
-    # Only admin or the booking owner (student/teacher) can update
     is_owner = str(booking.student_id) == str(current_user.id) or str(booking.teacher_id) == str(current_user.id)
-    if not is_owner and str(current_user.role) != "admin":
+    is_manager = current_user.role in (UserRole.admin, UserRole.superadmin)
+    if not is_owner and not is_manager:
         raise HTTPException(403, "Ruxsat yo'q")
     for k, v in data.model_dump(exclude_none=True).items():
         setattr(booking, k, v)

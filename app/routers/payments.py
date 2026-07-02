@@ -436,10 +436,10 @@ async def debt_summary(
     group_id: Optional[uuid.UUID] = Query(None),
     branch_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_permission("payments", "view")),
 ):
     """Return debt per (student, group) pair, considering payment_start_date and first_month_price."""
-    # SECURITY: students can only see their own debt
+    # students can only see their own debt
     from app.models.user import UserRole
     if current_user.role == UserRole.student:
         student_id = current_user.id
@@ -583,9 +583,9 @@ async def student_month_summary(
     student_id: uuid.UUID = Query(...),
     group_id: uuid.UUID = Query(...),
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_permission("payments", "view")),
 ):
-    # SECURITY: students can only access their own summary
+    # students can only access their own summary
     from app.models.user import UserRole
     if current_user.role == UserRole.student and student_id != current_user.id:
         raise HTTPException(403, "Ruxsat yo'q")
@@ -816,12 +816,12 @@ async def teacher_salary(
 async def get_payment(
     payment_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_permission("payments", "view")),
 ):
     row = (await db.execute(select(Payment).where(Payment.id == payment_id))).scalar_one_or_none()
     if not row:
         raise HTTPException(404, "Payment not found")
-    # SECURITY: students can only view their own payments
+    # students can only view their own payments
     from app.models.user import UserRole
     if current_user.role == UserRole.student and row.student_id != current_user.id:
         raise HTTPException(403, "Ruxsat yo'q")

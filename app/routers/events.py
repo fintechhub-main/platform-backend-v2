@@ -7,7 +7,7 @@ from sqlalchemy import select, func
 from pydantic import BaseModel
 from app.database import get_db
 from app.models.event import Event, EventRegistration
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.dependencies import get_current_user, require_permission
 
 router = APIRouter(prefix="/events", tags=["events"])
@@ -76,7 +76,7 @@ async def list_events(
             select(func.count()).where(EventRegistration.event_id == event.id)
         )).scalar() or 0
         is_reg = False
-        if current_user.role.value == 'student':
+        if current_user.role == UserRole.student:
             reg = (await db.execute(
                 select(EventRegistration).where(
                     EventRegistration.event_id == event.id,
