@@ -101,7 +101,7 @@ async def telegram_webhook(
             _sessions[session_id] = {"status": "failed", "message": "Ruxsat yo'q"}
             await _send_message(chat_id, "❌ Bu ilovaga kirish ruxsati yo'q.")
         else:
-            access_token = create_access_token({"sub": str(user.id), "role": user.role.value})
+            access_token = create_access_token({"sub": str(user.id), "role": str(user.role)})
             refresh_token = create_refresh_token({"sub": str(user.id)})
             _sessions[session_id] = {
                 "status": "completed",

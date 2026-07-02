@@ -21,7 +21,7 @@ def _build_out(user: User, profile: StaffProfile) -> dict:
         "full_name": user.full_name,
         "phone": user.phone,
         "email": user.email,
-        "role": user.role.value,
+        "role": str(user.role),
         "status": profile.status.value,
         "specializations": profile.specializations,
         "bio": profile.bio,
