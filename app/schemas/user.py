@@ -2,7 +2,6 @@ import uuid
 from pydantic import BaseModel
 from typing import Optional
 from datetime import date, datetime
-from app.models.user import UserRole
 
 
 class UserCreate(BaseModel):
@@ -10,7 +9,7 @@ class UserCreate(BaseModel):
     phone: str
     email: Optional[str] = None
     password: str
-    role: str = UserRole.student.value
+    role: str = "student"
     branch_id: Optional[uuid.UUID] = None
 
 
@@ -39,7 +38,7 @@ class UserOut(BaseModel):
     full_name: str
     phone: str
     email: Optional[str]
-    role: UserRole
+    role: str
     avatar: Optional[str]
     is_active: bool
     student_status: Optional[str] = None
