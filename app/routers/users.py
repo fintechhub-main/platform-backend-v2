@@ -48,10 +48,7 @@ async def save_fcm_token(
 def _build_user_query(role, search, is_active, student_status, in_group, branch_id, group_id=None, course_id=None):
     q = select(User)
     if role:
-        try:
-            q = q.where(User.role == UserRole(role))
-        except ValueError:
-            q = q.where(false())
+        q = q.where(User.role == role)
     if search:
         q = q.where(User.full_name.ilike(f"%{search}%") | User.phone.ilike(f"%{search}%"))
     if is_active is not None:
@@ -166,10 +163,7 @@ async def list_users_slim(
     """Lightweight user list — returns only id and full_name for picker dropdowns."""
     q = select(User.id, User.full_name)
     if role:
-        try:
-            q = q.where(User.role == UserRole(role))
-        except ValueError:
-            q = q.where(false())
+        q = q.where(User.role == role)
     if search:
         q = q.where(User.full_name.ilike(f"%{search}%") | User.phone.ilike(f"%{search}%"))
     if student_status:
@@ -224,20 +218,16 @@ async def create_user(data: UserCreate, db: AsyncSession = Depends(get_db), _=De
         email_existing = await db.execute(select(User).where(User.email == data.email))
         if email_existing.scalar_one_or_none():
             raise HTTPException(400, "Bu email allaqachon ro'yxatdan o'tgan")
-    try:
-        role_val = UserRole(data.role)
-    except ValueError:
-        raise HTTPException(400, f"Noto'g'ri rol: {data.role}")
+    role_val = data.role
     dump = data.model_dump(exclude={"password"})
-    dump["role"] = role_val
     user = User(**dump, password_hash=hash_password(data.password))
-    if role_val == UserRole.student:
+    if role_val == "student":
         user.student_status = "active"
     db.add(user)
     await db.flush()  # get user.id before commit
 
     # Auto-create staff profile for teacher/assistant_teacher/staff roles
-    if role_val in (UserRole.teacher, UserRole.assistant_teacher, UserRole.staff):
+    if role_val in ("teacher", "assistant_teacher", "staff"):
         profile = StaffProfile(user_id=user.id)
         db.add(profile)
 
@@ -264,11 +254,6 @@ async def update_user(user_id: uuid.UUID, data: UserUpdate, db: AsyncSession = D
     if not user:
         raise HTTPException(404, "User not found")
     for key, val in data.model_dump(exclude_none=True).items():
-        if key == "role":
-            try:
-                val = UserRole(val)
-            except ValueError:
-                raise HTTPException(400, f"Noto'g'ri rol: {val}")
         setattr(user, key, val)
     await db.commit()
     await db.refresh(user)

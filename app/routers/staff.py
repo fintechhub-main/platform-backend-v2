@@ -53,7 +53,7 @@ async def list_staff(
         .join(StaffProfile, StaffProfile.user_id == User.id)
     )
     if role:
-        q = q.where(User.role == UserRole(role))
+        q = q.where(User.role == role)
     else:
         q = q.where(User.role.in_([UserRole.teacher, UserRole.assistant_teacher, UserRole.staff]))
 

@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import String, Boolean, Enum as SAEnum, Date, DateTime, func, ForeignKey, Integer
+from sqlalchemy import String, Boolean, Date, DateTime, func, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
@@ -28,7 +28,7 @@ class User(Base):
     phone: Mapped[str] = mapped_column(String(20), unique=True, index=True)
     email: Mapped[str | None] = mapped_column(String(120), unique=True, nullable=True)
     password_hash: Mapped[str] = mapped_column(String(256))
-    role: Mapped[UserRole] = mapped_column(SAEnum(UserRole), default=UserRole.student, index=True)
+    role: Mapped[str] = mapped_column(String(50), default="student", index=True)
     avatar: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     student_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
