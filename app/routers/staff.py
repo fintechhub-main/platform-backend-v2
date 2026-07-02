@@ -92,8 +92,6 @@ async def update_staff(
     current_user: User = Depends(require_permission("teachers", "update")),
 ):
     # Only admin or the staff member themselves can update
-    if str(current_user.id) != str(user_id) and str(current_user.role) != "admin":
-        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
     q = (
         select(User, StaffProfile)
         .join(StaffProfile, StaffProfile.user_id == User.id)
