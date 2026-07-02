@@ -260,6 +260,25 @@ async def update_user(user_id: uuid.UUID, data: UserUpdate, db: AsyncSession = D
     return user
 
 
+@router.post("/{user_id}/set-password", status_code=200)
+async def set_user_password(
+    user_id: uuid.UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_permission("users", "update")),
+):
+    new_password = data.get("new_password", "")
+    if len(new_password) < 6:
+        raise HTTPException(400, "Parol kamida 6 ta belgidan iborat bo'lishi kerak")
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, "User not found")
+    user.password_hash = hash_password(new_password)
+    await db.commit()
+    return {"ok": True}
+
+
 @router.delete("/{user_id}", status_code=204)
 async def delete_user(user_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_permission("users", "delete"))):
     result = await db.execute(select(User).where(User.id == user_id))
