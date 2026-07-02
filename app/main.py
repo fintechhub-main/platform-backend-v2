@@ -5,6 +5,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -121,7 +123,67 @@ app.include_router(telegram_auth_router,       prefix="/api/v1")
 
 @app.get("/")
 async def root():
-    return {"status": "ok", "docs": "/docs"}
+    return {"status": "ok", "docs": "/docs", "student_docs": "/student-docs"}
+
+
+# ── Student Swagger ─────────────────────────────────────────────────────────
+# Paths accessible to student role (read their own data + actions they can take)
+_STUDENT_PATHS = {
+    "/api/v1/auth/login",
+    "/api/v1/auth/refresh",
+    "/api/v1/auth/change-password",
+    "/api/v1/users/me",
+    "/api/v1/users/me/fcm-token",
+    "/api/v1/users/{user_id}",
+    "/api/v1/groups/my",
+    "/api/v1/groups/{group_id}",
+    "/api/v1/groups/{group_id}/progress",
+    "/api/v1/groups/{group_id}/materials",
+    "/api/v1/groups/{group_id}/students",
+    "/api/v1/courses",
+    "/api/v1/courses/{course_id}",
+    "/api/v1/attendance",
+    "/api/v1/fines",
+    "/api/v1/exams",
+    "/api/v1/homework",
+    "/api/v1/certificates",
+    "/api/v1/coins",
+    "/api/v1/coins/balance/{student_id}",
+    "/api/v1/events",
+    "/api/v1/events/{event_id}/registrations",
+    "/api/v1/events/{event_id}/register",
+    "/api/v1/vacancies",
+    "/api/v1/bookings",
+    "/api/v1/bookings/busy-slots",
+    "/api/v1/bookings/{booking_id}",
+    "/api/v1/payments/debt-summary",
+    "/api/v1/payments/student-month-summary",
+    "/api/v1/payments/{payment_id}",
+    "/api/v1/ai/chat",
+    "/api/v1/ai/settings",
+    "/api/v1/permissions/my",
+}
+
+
+@app.get("/student-openapi.json", include_in_schema=False)
+async def student_openapi_schema():
+    schema = app.openapi()
+    student_schema = dict(schema)
+    student_schema["info"] = {**schema.get("info", {}), "title": "EduHub Student API"}
+    student_schema["paths"] = {
+        path: ops
+        for path, ops in schema.get("paths", {}).items()
+        if path in _STUDENT_PATHS
+    }
+    return JSONResponse(content=student_schema)
+
+
+@app.get("/student-docs", include_in_schema=False)
+async def student_swagger_ui():
+    return get_swagger_ui_html(
+        openapi_url="/student-openapi.json",
+        title="EduHub Student API Docs",
+    )
 
 
 # Qo'lda ishga tushirish uchun (faqat admin) — SECURITY: auth talab qilinadi
