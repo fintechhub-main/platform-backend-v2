@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.models.material import GroupMaterial
 from app.models.user import User
-from app.dependencies import get_current_user, require_admin_or_teacher
+from app.dependencies import get_current_user, require_permission
 
 router = APIRouter(prefix="/groups", tags=["materials"])
 
@@ -38,7 +38,7 @@ class MaterialOut(BaseModel):
 async def list_materials(
     group_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("groups", "view")),
 ):
     rows = (await db.execute(
         select(GroupMaterial, User.full_name)
@@ -59,7 +59,7 @@ async def create_material(
     group_id: uuid.UUID,
     data: MaterialCreate,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(require_admin_or_teacher),
+    current_user=Depends(require_permission("groups", "update")),
 ):
     mat = GroupMaterial(
         group_id=group_id,
@@ -83,7 +83,7 @@ async def update_material(
     material_id: uuid.UUID,
     data: MaterialCreate,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin_or_teacher),
+    _=Depends(require_permission("groups", "update")),
 ):
     mat = (await db.execute(
         select(GroupMaterial)
@@ -103,7 +103,7 @@ async def delete_material(
     group_id: uuid.UUID,
     material_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin_or_teacher),
+    _=Depends(require_permission("groups", "delete")),
 ):
     mat = (await db.execute(
         select(GroupMaterial)

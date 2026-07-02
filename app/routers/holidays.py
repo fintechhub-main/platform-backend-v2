@@ -7,7 +7,7 @@ from sqlalchemy import select, or_
 from pydantic import BaseModel
 from app.database import get_db
 from app.models.holiday import Holiday
-from app.dependencies import get_current_user, require_admin
+from app.dependencies import require_permission
 
 router = APIRouter(prefix="/holidays", tags=["holidays"])
 
@@ -44,7 +44,7 @@ def _out(h: Holiday):
 async def list_holidays(
     branch_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("settings", "view")),
 ):
     q = select(Holiday).order_by(Holiday.start_date)
     if branch_id:
@@ -56,7 +56,7 @@ async def list_holidays(
 
 
 @router.post("", status_code=201)
-async def create_holiday(data: HolidayCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def create_holiday(data: HolidayCreate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("settings", "create"))):
     holiday = Holiday(
         name=data.name,
         start_date=date.fromisoformat(data.start_date),
@@ -71,7 +71,7 @@ async def create_holiday(data: HolidayCreate, db: AsyncSession = Depends(get_db)
 
 
 @router.patch("/{holiday_id}")
-async def update_holiday(holiday_id: uuid.UUID, data: HolidayUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def update_holiday(holiday_id: uuid.UUID, data: HolidayUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_permission("settings", "update"))):
     h = (await db.execute(select(Holiday).where(Holiday.id == holiday_id))).scalar_one_or_none()
     if not h:
         raise HTTPException(404, "Not found")
@@ -87,7 +87,7 @@ async def update_holiday(holiday_id: uuid.UUID, data: HolidayUpdate, db: AsyncSe
 
 
 @router.delete("/{holiday_id}", status_code=204)
-async def delete_holiday(holiday_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def delete_holiday(holiday_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_permission("settings", "delete"))):
     h = (await db.execute(select(Holiday).where(Holiday.id == holiday_id))).scalar_one_or_none()
     if not h:
         raise HTTPException(404, "Not found")

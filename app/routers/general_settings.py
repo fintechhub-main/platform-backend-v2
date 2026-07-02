@@ -5,8 +5,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 from app.database import get_db
-from app.dependencies import get_current_user, require_admin
-from app.models.user import User
+from app.dependencies import require_permission
 from app.models.general_settings import GeneralSettings
 
 router = APIRouter(prefix="/general-settings", tags=["general-settings"])
@@ -61,7 +60,7 @@ class GeneralSettingsUpdate(BaseModel):
 @router.get("")
 async def get_general_settings(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _=Depends(require_permission("settings", "view")),
 ):
     result = await db.execute(select(GeneralSettings).limit(1))
     row = result.scalar_one_or_none()
@@ -95,7 +94,7 @@ async def get_general_settings(
 async def update_general_settings(
     data: GeneralSettingsUpdate,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin),
+    _=Depends(require_permission("settings", "update")),
 ):
     result = await db.execute(select(GeneralSettings).limit(1))
     row = result.scalar_one_or_none()
