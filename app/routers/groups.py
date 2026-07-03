@@ -82,7 +82,7 @@ async def create_group(data: GroupCreate, db: AsyncSession = Depends(get_db), _=
 async def frozen_students(
     branch_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("groups", "view")),
 ):
     q = (
         select(User, GroupStudent.group_id)
@@ -110,7 +110,7 @@ async def list_groups_slim(
     course_id: Optional[uuid.UUID] = Query(None),
     status: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("groups", "view")),
 ):
     """Lightweight group list — only fields needed for filter dropdowns and student mapping."""
     q = select(Group).options(joinedload(Group.teacher))
@@ -181,7 +181,7 @@ async def group_students(
     group_id: uuid.UUID,
     is_frozen: Optional[bool] = Query(None),
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_permission("groups", "view")),
 ):
     q = (
         select(User, GroupStudent.is_frozen)

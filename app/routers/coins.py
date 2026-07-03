@@ -8,6 +8,7 @@ from sqlalchemy import select, func
 from app.database import get_db
 from app.models.coin import CoinTransaction
 from app.models.group import Group, GroupStudent
+from app.models.user import User
 from app.schemas.coin import CoinCreate, CoinOut
 from app.dependencies import get_current_user, require_permission
 
@@ -54,8 +55,11 @@ async def create_coin_transaction(
 async def get_coin_balance(
     student_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    if str(current_user.role) == "student" and current_user.id != student_id:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
     result = await db.execute(
         select(func.coalesce(func.sum(CoinTransaction.coins), 0)).where(
             CoinTransaction.student_id == student_id

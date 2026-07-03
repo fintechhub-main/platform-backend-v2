@@ -23,8 +23,10 @@ async def get_me(current_user: User = Depends(get_current_user)):
 
 @router.patch("/me", response_model=UserOut)
 async def update_me(data: UserUpdate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    PROTECTED = {"role", "is_active", "password_hash", "token_version"}
     for key, val in data.model_dump(exclude_none=True).items():
-        setattr(current_user, key, val)
+        if key not in PROTECTED:
+            setattr(current_user, key, val)
     await db.commit()
     await db.refresh(current_user)
     return current_user

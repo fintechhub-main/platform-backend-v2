@@ -71,6 +71,7 @@ async def list_staff(
 async def get_staff(
     user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    _=Depends(require_permission("teachers", "view")),
     current_user: User = Depends(get_current_user),
 ):
     q = (
