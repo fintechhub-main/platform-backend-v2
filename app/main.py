@@ -1,16 +1,21 @@
+import asyncio
 import logging
+import time
+import traceback
 from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.limiter import limiter
+from app.utils.monitoring import send_alert
 
 from app.config import settings
 from app.database import AsyncSessionLocal as async_session
@@ -65,9 +70,11 @@ async def lifespan(app: FastAPI):
     # Register Telegram webhook
     result = await set_webhook("https://lms-test.fintechhub.uz")
     logger.info(f"Telegram webhook: {result}")
+    await send_alert("✅ <b>EduHub backend ishga tushdi</b>\nlms-test.fintechhub.uz")
     yield
     scheduler.shutdown()
     await close_redis()
+    await send_alert("⚠️ <b>EduHub backend to'xtatildi</b>")
 
 
 app = FastAPI(
@@ -83,6 +90,34 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+
+class ErrorMonitorMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        start = time.time()
+        try:
+            response = await call_next(request)
+            duration_ms = int((time.time() - start) * 1000)
+            if response.status_code >= 500:
+                asyncio.create_task(send_alert(
+                    f"🔴 <b>500 Xato</b>\n"
+                    f"<code>{request.method} {request.url.path}</code>\n"
+                    f"IP: {request.client.host if request.client else '?'}\n"
+                    f"Vaqt: {duration_ms}ms"
+                ))
+            return response
+        except Exception as exc:
+            duration_ms = int((time.time() - start) * 1000)
+            tb = traceback.format_exc()[-800:]
+            asyncio.create_task(send_alert(
+                f"💥 <b>Kutilmagan xato</b>\n"
+                f"<code>{request.method} {request.url.path}</code>\n"
+                f"IP: {request.client.host if request.client else '?'}\n"
+                f"<pre>{tb}</pre>"
+            ))
+            raise
+
+
+app.add_middleware(ErrorMonitorMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

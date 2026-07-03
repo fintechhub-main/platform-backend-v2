@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_USERNAME: str = "Malumotimbot"
     TELEGRAM_WEBHOOK_SECRET: str = ""
     REDIS_URL: str = "redis://localhost:6379/0"
+    MONITOR_BOT_TOKEN: str = ""
+    MONITOR_CHAT_ID: str = ""
+    BACKUP_CHAT_ID: str = ""
     SHOW_DOCS: bool = True
     DEBUG: bool = False
 
