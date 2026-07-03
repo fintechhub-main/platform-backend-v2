@@ -25,6 +25,7 @@ from app.routers.telegram_auth import router as telegram_auth_router, set_webhoo
 from app.utils.daily_attendance import run_daily_attendance
 from app.dependencies import require_admin
 from app.database import get_db
+from app.redis_client import get_redis, close_redis
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends
 
@@ -58,11 +59,15 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(_vacancy_fetch_job, CronTrigger(minute=0), id="vacancy_auto_fetch", replace_existing=True)
     scheduler.start()
     logger.info("Scheduler ishga tushdi (daily_attendance 06:00, vacancy_fetch har soat)")
+    # Redis ulanish
+    await get_redis()
+    logger.info("Redis ulandi")
     # Register Telegram webhook
     result = await set_webhook("https://lms-test.fintechhub.uz")
     logger.info(f"Telegram webhook: {result}")
     yield
     scheduler.shutdown()
+    await close_redis()
 
 
 app = FastAPI(

@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_BOT_USERNAME: str = "Malumotimbot"
     TELEGRAM_WEBHOOK_SECRET: str = ""
+    REDIS_URL: str = "redis://localhost:6379/0"
     SHOW_DOCS: bool = True
     DEBUG: bool = False
 

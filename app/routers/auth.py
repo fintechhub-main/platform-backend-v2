@@ -51,7 +51,7 @@ async def login(request: Request, data: LoginRequest, db: AsyncSession = Depends
         raise HTTPException(status_code=403, detail="Account is deactivated")
 
     access_token = create_access_token({"sub": str(user.id), "role": str(user.role), "tv": user.token_version})
-    refresh_token = create_refresh_token({"sub": str(user.id)})
+    refresh_token = create_refresh_token({"sub": str(user.id), "tv": user.token_version})
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -71,8 +71,13 @@ async def refresh_token(request: Request, data: RefreshRequest, db: AsyncSession
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found")
 
+    # H-3: refresh token parol o'zgarishidan oldin olingan bo'lsa rad etish
+    token_tv = payload.get("tv")
+    if token_tv is not None and token_tv != user.token_version:
+        raise HTTPException(status_code=401, detail="Token bekor qilingan. Qayta kiring.")
+
     access_token = create_access_token({"sub": str(user.id), "role": str(user.role), "tv": user.token_version})
-    new_refresh = create_refresh_token({"sub": str(user.id)})
+    new_refresh = create_refresh_token({"sub": str(user.id), "tv": user.token_version})
     return TokenResponse(
         access_token=access_token,
         refresh_token=new_refresh,
