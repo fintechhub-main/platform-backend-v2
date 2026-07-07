@@ -107,8 +107,8 @@ class ForgotPasswordReset(BaseModel):
 OTP_TTL = 300  # 5 minutes
 
 
-async def _send_otp_sms(phone: str, code: str, db: AsyncSession) -> bool:
-    """Send OTP via Eskiz if configured, otherwise just store it silently."""
+async def _send_otp_sms_text(phone: str, message: str, db: AsyncSession) -> bool:
+    """Send a text via Eskiz if configured. Returns True if sent."""
     result = await db.execute(
         select(IntegrationSettings).where(
             IntegrationSettings.key == "eskiz",
@@ -129,16 +129,20 @@ async def _send_otp_sms(phone: str, code: str, db: AsyncSession) -> bool:
             if not token:
                 return False
 
-            msg = f"EduHub: Parolni tiklash kodi: {code}. Amal qilish muddati 5 daqiqa."
             clean_phone = phone.lstrip("+")
             await client.post(
                 "https://notify.eskiz.uz/api/message/sms/send",
                 headers={"Authorization": f"Bearer {token}"},
-                data={"mobile_phone": clean_phone, "message": msg, "from": "4546"},
+                data={"mobile_phone": clean_phone, "message": message, "from": "4546"},
             )
         return True
     except Exception:
         return False
+
+
+async def _send_otp_sms(phone: str, code: str, db: AsyncSession) -> bool:
+    msg = f"EduHub: Parolni tiklash kodi: {code}. Amal qilish muddati 5 daqiqa."
+    return await _send_otp_sms_text(phone, msg, db)
 
 
 @router.post("/forgot-password")
@@ -210,6 +214,80 @@ async def forgot_password_reset(
     await redis.delete(f"otp_verified:{data.phone}")
 
     return {"ok": True, "message": "Parol muvaffaqiyatli yangilandi"}
+
+
+class RegisterSendOtpRequest(BaseModel):
+    phone: str
+
+
+class RegisterVerifyOtpRequest(BaseModel):
+    phone: str
+    code: str
+    full_name: str
+    password: str
+
+
+@router.post("/register/send-otp")
+@limiter.limit("3/hour")
+async def register_send_otp(
+    request: Request,
+    data: RegisterSendOtpRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Step 1: Check phone availability and send OTP for registration."""
+    existing = await db.execute(select(User).where(User.phone == data.phone))
+    if existing.scalar_one_or_none():
+        raise HTTPException(400, "Bu raqam allaqachon ro'yxatdan o'tgan")
+
+    code = str(random.randint(100000, 999999))
+    redis = await get_redis()
+    await redis.setex(f"reg_otp:{data.phone}", OTP_TTL, code)
+
+    sms_sent = await _send_otp_sms_text(
+        data.phone,
+        f"EduHub: Ro'yxatdan o'tish kodi: {code}. Amal qilish muddati 5 daqiqa.",
+        db,
+    )
+
+    response = {"ok": True, "message": "Tasdiqlash kodi yuborildi"}
+    if not sms_sent:
+        response["code"] = code
+    return response
+
+
+@router.post("/register/verify-otp", response_model=UserOut, status_code=201)
+@limiter.limit("5/hour")
+async def register_verify_otp(
+    request: Request,
+    data: RegisterVerifyOtpRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Step 2: Verify OTP and complete registration."""
+    redis = await get_redis()
+    stored = await redis.get(f"reg_otp:{data.phone}")
+    if not stored or stored != data.code:
+        raise HTTPException(400, "Kod noto'g'ri yoki muddati o'tgan")
+
+    existing = await db.execute(select(User).where(User.phone == data.phone))
+    if existing.scalar_one_or_none():
+        raise HTTPException(400, "Bu raqam allaqachon ro'yxatdan o'tgan")
+
+    if len(data.password) < 8:
+        raise HTTPException(400, "Parol kamida 8 ta belgi bo'lishi kerak")
+
+    from app.models.user import UserRole
+    user = User(
+        full_name=data.full_name,
+        phone=data.phone,
+        password_hash=hash_password(data.password),
+        role=UserRole.student,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+
+    await redis.delete(f"reg_otp:{data.phone}")
+    return user
 
 
 @router.post("/change-password")

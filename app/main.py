@@ -25,7 +25,7 @@ from app.routers import (
     homework, dashboard, permissions, discounts, group_progress, materials,
     branches, practicum, logs, reports, ai, telegram_sources, integrations,
     general_settings, events, holidays, notifications, shop, cards,
-    book_presentations, group_projects,
+    book_presentations, group_projects, resume, appointments,
 )
 from app.routers.telegram_auth import router as telegram_auth_router, set_webhook
 from app.utils.daily_attendance import run_daily_attendance
@@ -165,6 +165,8 @@ app.include_router(shop.router,                prefix="/api/v1")
 app.include_router(cards.router,               prefix="/api/v1")
 app.include_router(book_presentations.router,  prefix="/api/v1")
 app.include_router(group_projects.router,      prefix="/api/v1")
+app.include_router(resume.router,              prefix="/api/v1")
+app.include_router(appointments.router,        prefix="/api/v1")
 
 
 @app.get("/")
@@ -241,6 +243,26 @@ _STUDENT_PATHS = {
     "/api/v1/exams/submissions",
     "/api/v1/practicum/teams",
     "/api/v1/practicum/teams/{team_id}/tasks",
+    # profile edit
+    "/api/v1/users/me",
+    # vacancies apply
+    "/api/v1/vacancies/applicants",
+    # resume/CV
+    "/api/v1/resume/me",
+    "/api/v1/resume/{user_id}",
+    "/api/v1/resume/me/education",
+    "/api/v1/resume/me/education/{edu_id}",
+    "/api/v1/resume/me/work-experience",
+    "/api/v1/resume/me/work-experience/{work_id}",
+    "/api/v1/resume/me/leadership",
+    "/api/v1/resume/me/leadership/{lead_id}",
+    # appointments with teacher
+    "/api/v1/appointments",
+    "/api/v1/appointments/available-slots",
+    "/api/v1/appointments/{appointment_id}",
+    # SMS register
+    "/api/v1/auth/register/send-otp",
+    "/api/v1/auth/register/verify-otp",
 }
 
 

@@ -33,6 +33,8 @@ from app.models.shop import Product, ShopOrder, CartItem
 from app.models.card import Card, CardTransfer
 from app.models.book_presentation import BookPresentation
 from app.models.group_project import GroupProject, GroupProjectTask, TaskComment, group_project_students, group_project_task_students
+from app.models.resume import Resume, ResumeEducation, ResumeWorkExperience, ResumeLeadership
+from app.models.appointment import TeacherAppointment
 
 __all__ = [
     "User", "Course", "Group", "GroupStudent",
@@ -50,4 +52,6 @@ __all__ = [
     "Card", "CardTransfer",
     "BookPresentation",
     "GroupProject", "GroupProjectTask", "TaskComment",
+    "Resume", "ResumeEducation", "ResumeWorkExperience", "ResumeLeadership",
+    "TeacherAppointment",
 ]
