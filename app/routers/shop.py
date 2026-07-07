@@ -3,6 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from pydantic import BaseModel
 
 from app.database import get_db
@@ -131,26 +132,35 @@ async def delete_product(
 
 # ── Cart / Orders ────────────────────────────────────────────────────────────
 
+async def _load_cart(user_id, db: AsyncSession) -> ShopOrder:
+    """Get or create active cart, always with items+product loaded."""
+    result = await db.execute(
+        select(ShopOrder)
+        .options(selectinload(ShopOrder.items).selectinload(CartItem.product))
+        .where(ShopOrder.user_id == user_id, ShopOrder.status == "-1")
+        .order_by(ShopOrder.created_at.desc())
+    )
+    order = result.scalar_one_or_none()
+    if not order:
+        order = ShopOrder(user_id=user_id, status="-1")
+        db.add(order)
+        await db.commit()
+        # Re-query to get fully loaded object (avoids MissingGreenlet on lazy load)
+        result2 = await db.execute(
+            select(ShopOrder)
+            .options(selectinload(ShopOrder.items).selectinload(CartItem.product))
+            .where(ShopOrder.id == order.id)
+        )
+        order = result2.scalar_one()
+    return order
+
+
 @router.get("/cart")
 async def get_cart(
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get or create the active (status=-1) order for current user."""
-    from sqlalchemy.orm import selectinload
-    result = await db.execute(
-        select(ShopOrder)
-        .options(selectinload(ShopOrder.items).selectinload(CartItem.product))
-        .where(ShopOrder.user_id == current_user.id, ShopOrder.status == "-1")
-        .order_by(ShopOrder.created_at.desc())
-    )
-    order = result.scalar_one_or_none()
-    if not order:
-        order = ShopOrder(user_id=current_user.id, status="-1")
-        db.add(order)
-        await db.commit()
-        await db.refresh(order)
-        order.items = []
+    order = await _load_cart(current_user.id, db)
     return _order_out(order)
 
 
@@ -160,24 +170,13 @@ async def add_to_cart(
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    from sqlalchemy.orm import selectinload
     product_id = uuid.UUID(data.product_id)
     prod_result = await db.execute(select(Product).where(Product.id == product_id, Product.is_active == True))
     product = prod_result.scalar_one_or_none()
     if not product:
         raise HTTPException(404, "Mahsulot topilmadi")
 
-    order_result = await db.execute(
-        select(ShopOrder)
-        .options(selectinload(ShopOrder.items).selectinload(CartItem.product))
-        .where(ShopOrder.user_id == current_user.id, ShopOrder.status == "-1")
-    )
-    order = order_result.scalar_one_or_none()
-    if not order:
-        order = ShopOrder(user_id=current_user.id, status="-1")
-        db.add(order)
-        await db.flush()
-
+    order = await _load_cart(current_user.id, db)
     item = CartItem(
         order_id=order.id,
         product_id=product_id,
@@ -186,13 +185,7 @@ async def add_to_cart(
     )
     db.add(item)
     await db.commit()
-
-    order_result2 = await db.execute(
-        select(ShopOrder)
-        .options(selectinload(ShopOrder.items).selectinload(CartItem.product))
-        .where(ShopOrder.id == order.id)
-    )
-    return _order_out(order_result2.scalar_one())
+    return _order_out(await _load_cart(current_user.id, db))
 
 
 @router.delete("/cart/items/{item_id}", status_code=204)
@@ -219,19 +212,17 @@ async def place_order(
     db: AsyncSession = Depends(get_db),
 ):
     """Convert active cart to a placed order (status 0)."""
-    from sqlalchemy.orm import selectinload
-    result = await db.execute(
-        select(ShopOrder)
-        .options(selectinload(ShopOrder.items).selectinload(CartItem.product))
-        .where(ShopOrder.user_id == current_user.id, ShopOrder.status == "-1")
-    )
-    order = result.scalar_one_or_none()
-    if not order or not order.items:
+    order = await _load_cart(current_user.id, db)
+    if not order.items:
         raise HTTPException(400, "Savat bo'sh")
     order.status = "0"
     await db.commit()
-    await db.refresh(order)
-    return _order_out(order)
+    result = await db.execute(
+        select(ShopOrder)
+        .options(selectinload(ShopOrder.items).selectinload(CartItem.product))
+        .where(ShopOrder.id == order.id)
+    )
+    return _order_out(result.scalar_one())
 
 
 @router.get("/orders")
@@ -241,7 +232,6 @@ async def order_history(
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    from sqlalchemy.orm import selectinload
     result = await db.execute(
         select(ShopOrder)
         .options(selectinload(ShopOrder.items).selectinload(CartItem.product))
