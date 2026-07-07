@@ -24,7 +24,8 @@ from app.routers import (
     bookings, certificates, rooms, staff, leads, payments, coins, exams,
     homework, dashboard, permissions, discounts, group_progress, materials,
     branches, practicum, logs, reports, ai, telegram_sources, integrations,
-    general_settings, events, holidays,
+    general_settings, events, holidays, notifications, shop, cards,
+    book_presentations, group_projects,
 )
 from app.routers.telegram_auth import router as telegram_auth_router, set_webhook
 from app.utils.daily_attendance import run_daily_attendance
@@ -159,6 +160,11 @@ app.include_router(general_settings.router,    prefix="/api/v1")
 app.include_router(events.router,              prefix="/api/v1")
 app.include_router(holidays.router,            prefix="/api/v1")
 app.include_router(telegram_auth_router,       prefix="/api/v1")
+app.include_router(notifications.router,       prefix="/api/v1")
+app.include_router(shop.router,                prefix="/api/v1")
+app.include_router(cards.router,               prefix="/api/v1")
+app.include_router(book_presentations.router,  prefix="/api/v1")
+app.include_router(group_projects.router,      prefix="/api/v1")
 
 
 @app.get("/")
@@ -202,6 +208,30 @@ _STUDENT_PATHS = {
     "/api/v1/ai/chat",
     "/api/v1/ai/settings",
     "/api/v1/permissions/my",
+    "/api/v1/auth/forgot-password",
+    "/api/v1/auth/forgot-password/verify",
+    "/api/v1/auth/forgot-password/reset",
+    "/api/v1/notifications",
+    "/api/v1/notifications/unread-count",
+    "/api/v1/notifications/mark-all-read",
+    "/api/v1/notifications/{notification_id}/mark-read",
+    "/api/v1/shop/products",
+    "/api/v1/shop/cart",
+    "/api/v1/shop/cart/add",
+    "/api/v1/shop/cart/items/{item_id}",
+    "/api/v1/shop/order",
+    "/api/v1/shop/orders",
+    "/api/v1/cards/my",
+    "/api/v1/cards/lookup",
+    "/api/v1/cards/topup",
+    "/api/v1/cards/transfer",
+    "/api/v1/cards/transfers",
+    "/api/v1/book-presentations",
+    "/api/v1/book-presentations/{book_id}",
+    "/api/v1/group-projects",
+    "/api/v1/group-projects/{project_id}",
+    "/api/v1/group-projects/{project_id}/tasks/{task_id}",
+    "/api/v1/group-projects/{project_id}/tasks/{task_id}/comments",
 }
 
 

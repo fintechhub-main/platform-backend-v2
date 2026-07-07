@@ -1,4 +1,6 @@
 import uuid
+import random
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -8,6 +10,8 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.limiter import limiter
 from app.models.user import User
+from app.models.integration_settings import IntegrationSettings
+from app.redis_client import get_redis
 from app.schemas.user import LoginRequest, TokenResponse, RefreshRequest, UserOut, UserCreate
 from app.utils.auth import verify_password, hash_password, create_access_token, create_refresh_token, decode_token
 
@@ -83,6 +87,129 @@ async def refresh_token(request: Request, data: RefreshRequest, db: AsyncSession
         refresh_token=new_refresh,
         user=UserOut.model_validate(user),
     )
+
+
+class ForgotPasswordRequest(BaseModel):
+    phone: str
+
+
+class ForgotPasswordVerify(BaseModel):
+    phone: str
+    code: str
+
+
+class ForgotPasswordReset(BaseModel):
+    phone: str
+    code: str
+    new_password: str
+
+
+OTP_TTL = 300  # 5 minutes
+
+
+async def _send_otp_sms(phone: str, code: str, db: AsyncSession) -> bool:
+    """Send OTP via Eskiz if configured, otherwise just store it silently."""
+    result = await db.execute(
+        select(IntegrationSettings).where(
+            IntegrationSettings.key == "eskiz",
+            IntegrationSettings.is_active == True,
+        )
+    )
+    eskiz = result.scalar_one_or_none()
+    if not eskiz or not eskiz.login or not eskiz.password:
+        return False
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            login_resp = await client.post(
+                "https://notify.eskiz.uz/api/auth/login",
+                data={"email": eskiz.login, "password": eskiz.password},
+            )
+            token = login_resp.json().get("data", {}).get("token")
+            if not token:
+                return False
+
+            msg = f"EduHub: Parolni tiklash kodi: {code}. Amal qilish muddati 5 daqiqa."
+            clean_phone = phone.lstrip("+")
+            await client.post(
+                "https://notify.eskiz.uz/api/message/sms/send",
+                headers={"Authorization": f"Bearer {token}"},
+                data={"mobile_phone": clean_phone, "message": msg, "from": "4546"},
+            )
+        return True
+    except Exception:
+        return False
+
+
+@router.post("/forgot-password")
+@limiter.limit("3/hour")
+async def forgot_password(
+    request: Request,
+    data: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(User).where(User.phone == data.phone, User.is_active == True))
+    user = result.scalar_one_or_none()
+    if not user:
+        # Don't reveal whether phone exists
+        return {"ok": True, "message": "Agar raqam ro'yxatda bo'lsa, kod yuborildi"}
+
+    code = str(random.randint(100000, 999999))
+    redis = await get_redis()
+    await redis.setex(f"otp:{data.phone}", OTP_TTL, code)
+
+    sms_sent = await _send_otp_sms(data.phone, code, db)
+
+    response = {"ok": True, "message": "Agar raqam ro'yxatda bo'lsa, kod yuborildi"}
+    # In dev (SMS not configured) return code for testing
+    if not sms_sent:
+        response["code"] = code
+    return response
+
+
+@router.post("/forgot-password/verify")
+@limiter.limit("10/minute")
+async def forgot_password_verify(
+    request: Request,
+    data: ForgotPasswordVerify,
+):
+    redis = await get_redis()
+    stored = await redis.get(f"otp:{data.phone}")
+    if not stored or stored != data.code:
+        raise HTTPException(400, "Kod noto'g'ri yoki muddati o'tgan")
+    # Mark as verified (extend TTL for reset step)
+    await redis.setex(f"otp_verified:{data.phone}", OTP_TTL, data.code)
+    return {"ok": True, "message": "Kod tasdiqlandi"}
+
+
+@router.post("/forgot-password/reset")
+@limiter.limit("5/hour")
+async def forgot_password_reset(
+    request: Request,
+    data: ForgotPasswordReset,
+    db: AsyncSession = Depends(get_db),
+):
+    if len(data.new_password) < 8:
+        raise HTTPException(400, "Parol kamida 8 ta belgi bo'lishi kerak")
+
+    redis = await get_redis()
+    stored = await redis.get(f"otp_verified:{data.phone}")
+    if not stored or stored != data.code:
+        raise HTTPException(400, "Tasdiqlash kodi noto'g'ri yoki muddati o'tgan")
+
+    result = await db.execute(select(User).where(User.phone == data.phone, User.is_active == True))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, "Foydalanuvchi topilmadi")
+
+    user.password_hash = hash_password(data.new_password)
+    user.token_version = (user.token_version or 1) + 1
+    await db.commit()
+
+    await redis.delete(f"otp:{data.phone}")
+    await redis.delete(f"otp_verified:{data.phone}")
+
+    return {"ok": True, "message": "Parol muvaffaqiyatli yangilandi"}
 
 
 @router.post("/change-password")

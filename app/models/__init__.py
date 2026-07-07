@@ -28,6 +28,11 @@ from app.models.integration_settings import IntegrationSettings
 from app.models.general_settings import GeneralSettings
 from app.models.event import Event, EventRegistration
 from app.models.holiday import Holiday
+from app.models.notification import Notification
+from app.models.shop import Product, ShopOrder, CartItem
+from app.models.card import Card, CardTransfer
+from app.models.book_presentation import BookPresentation
+from app.models.group_project import GroupProject, GroupProjectTask, TaskComment, group_project_students, group_project_task_students
 
 __all__ = [
     "User", "Course", "Group", "GroupStudent",
@@ -39,8 +44,10 @@ __all__ = [
     "Payment", "PaymentRefund", "PaymentLog", "CoinTransaction", "RolePermission",
     "Discount", "GroupModuleAccess", "GroupLessonDone",
     "Branch", "PracticumTeam", "PracticumTask",
-    "AuditLog",
-    "AISettings",
-    "TelegramSource",
-    "IntegrationSettings",
+    "AuditLog", "AISettings", "TelegramSource", "IntegrationSettings",
+    "Notification",
+    "Product", "ShopOrder", "CartItem",
+    "Card", "CardTransfer",
+    "BookPresentation",
+    "GroupProject", "GroupProjectTask", "TaskComment",
 ]
