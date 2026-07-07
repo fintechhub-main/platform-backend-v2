@@ -3,17 +3,101 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func
 from typing import List, Optional
-from datetime import date
+from datetime import date, datetime
 from pydantic import BaseModel
 
 from app.database import get_db
 from app.models.attendance import Attendance
-from app.models.group import Group
+from app.models.group import Group, GroupStudent
+from app.models.user import User
 from app.schemas.attendance import AttendanceCreate, AttendanceUpdate, AttendanceOut, BulkAttendanceCreate
 from app.dependencies import get_current_user, require_permission
 from app.utils.audit import write_log
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
+
+
+@router.get("/daily")
+async def daily_attendance(
+    group_id: uuid.UUID = Query(...),
+    date: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_permission("attendance", "view")),
+):
+    """Guruh o'quvchilari + ularning berilgan kun davomati."""
+    att_date = datetime.strptime(date, "%Y-%m-%d").date()
+
+    # All students in this group
+    gs_rows = (await db.execute(
+        select(GroupStudent, User)
+        .join(User, User.id == GroupStudent.student_id)
+        .where(GroupStudent.group_id == group_id)
+        .order_by(User.full_name)
+    )).all()
+
+    # Existing attendance records for the date
+    att_rows = (await db.execute(
+        select(Attendance).where(
+            and_(Attendance.group_id == group_id, Attendance.date == att_date)
+        )
+    )).scalars().all()
+    att_map = {a.student_id: a for a in att_rows}
+
+    result = []
+    for gs, student in gs_rows:
+        att = att_map.get(student.id)
+        result.append({
+            "id": str(att.id) if att else None,
+            "student_id": str(student.id),
+            "full_name": student.full_name,
+            "phone": student.phone or "",
+            "status": att.status.value if att and att.status else None,
+            "grade": att.grade if att else None,
+            "reason": att.reason if att else None,
+        })
+    return result
+
+
+@router.get("/missed")
+async def missed_attendance(
+    date: str = Query(...),
+    page: int = Query(1),
+    page_size: int = Query(50),
+    branch_id: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_permission("attendance", "view")),
+):
+    """Berilgan kunda kelmagan (absent/excused) talabalar."""
+    att_date = datetime.strptime(date, "%Y-%m-%d").date()
+
+    base_q = (
+        select(Attendance, User, Group)
+        .join(User, User.id == Attendance.student_id)
+        .join(Group, Group.id == Attendance.group_id)
+        .where(Attendance.date == att_date)
+        .where(Attendance.status.in_(["absent", "excused"]))
+    )
+    if branch_id:
+        base_q = base_q.where(Group.branch_id == uuid.UUID(branch_id))
+
+    total = (await db.execute(select(func.count()).select_from(base_q.subquery()))).scalar()
+    rows = (await db.execute(
+        base_q.offset((page - 1) * page_size).limit(page_size)
+    )).all()
+
+    items = []
+    for att, student, group in rows:
+        items.append({
+            "att_id": str(att.id),
+            "student_id": str(student.id),
+            "full_name": student.full_name,
+            "phone": student.phone or "",
+            "group_name": group.name,
+            "date": att.date.isoformat(),
+            "status": att.status.value if hasattr(att.status, "value") else str(att.status),
+            "reason": att.reason or "",
+        })
+    return {"items": items, "total": total}
 
 
 @router.get("", response_model=List[AttendanceOut])
