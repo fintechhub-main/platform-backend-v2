@@ -20,6 +20,16 @@ class AISettings(Base):
     deepseek_api_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     deepseek_model: Mapped[str] = mapped_column(String(100), default="deepseek-chat")
     token_budget: Mapped[int] = mapped_column(Integer, default=1000000)
+    daily_limit: Mapped[int | None] = mapped_column(Integer, nullable=True, default=20)
+    role_limits: Mapped[dict] = mapped_column(JSONB, default=lambda: {
+        "student": 10,
+        "teacher": 50,
+        "assistant_teacher": 30,
+        "manager": 50,
+        "cashier": 20,
+        "staff": 20,
+        "default": 20,
+    })
     enabled_modules: Mapped[dict] = mapped_column(JSONB, default=lambda: {
         "grading": True, "chatbot": True, "analytics": True,
         "summary": True, "plagiarism": False, "recommendations": True

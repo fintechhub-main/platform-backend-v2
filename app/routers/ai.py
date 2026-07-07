@@ -16,6 +16,25 @@ router = APIRouter(prefix="/ai", tags=["ai"])
 # ─── Unlimited roles ──────────────────────────────────────────────────────────
 UNLIMITED_ROLES = {"superadmin", "admin"}
 
+DEFAULT_ROLE_LIMITS = {
+    "student": 10,
+    "teacher": 50,
+    "assistant_teacher": 30,
+    "manager": 50,
+    "cashier": 20,
+    "staff": 20,
+    "default": 20,
+}
+
+
+def _get_limit_for_role(settings, role: str) -> int:
+    role_limits = (getattr(settings, "role_limits", None) or {}) if settings else {}
+    if role in role_limits and role_limits[role] is not None:
+        return int(role_limits[role])
+    if "default" in role_limits and role_limits["default"] is not None:
+        return int(role_limits["default"])
+    return DEFAULT_ROLE_LIMITS.get(role, DEFAULT_ROLE_LIMITS["default"])
+
 # ─── Mode system prompts ──────────────────────────────────────────────────────
 MODE_PROMPTS = {
     "ustoz": (
@@ -96,6 +115,7 @@ class SettingsUpdate(BaseModel):
     deepseek_model: Optional[str] = None
     token_budget: Optional[int] = None
     daily_limit: Optional[int] = None
+    role_limits: Optional[dict] = None
     enabled_modules: Optional[dict] = None
     system_prompt: Optional[str] = None
 
@@ -107,12 +127,9 @@ async def get_ai_usage(
     current_user=Depends(get_current_user),
 ):
     """Foydalanuvchining bugungi AI foydalanish statistikasi."""
-    settings = await ai_service.get_settings(db)
-    daily_limit = getattr(settings, "daily_limit", 20) if settings else 20
-    if daily_limit is None:
-        daily_limit = 20
-
     is_unlimited = str(current_user.role) in UNLIMITED_ROLES
+    settings = await ai_service.get_settings(db)
+    daily_limit = _get_limit_for_role(settings, str(current_user.role))
 
     today = today_date.today()
     row = (await db.execute(
@@ -125,6 +142,7 @@ async def get_ai_usage(
         "limit": daily_limit,
         "remaining": daily_limit - used if not is_unlimited else 9999,
         "is_unlimited": is_unlimited,
+        "role": str(current_user.role),
         "date": today.isoformat(),
     }
 
@@ -142,10 +160,7 @@ async def ai_chat(
     is_unlimited = str(current_user.role) in UNLIMITED_ROLES
     if not is_unlimited:
         settings = await ai_service.get_settings(db)
-        daily_limit = getattr(settings, "daily_limit", 20) if settings else 20
-        if daily_limit is None:
-            daily_limit = 20
-
+        daily_limit = _get_limit_for_role(settings, str(current_user.role))
         usage = await _get_or_create_usage(db, current_user.id)
         if usage.requests_count >= daily_limit:
             raise HTTPException(
@@ -189,6 +204,7 @@ async def get_ai_settings(
         "deepseek_model": settings.deepseek_model,
         "token_budget": settings.token_budget,
         "daily_limit": getattr(settings, "daily_limit", 20),
+        "role_limits": getattr(settings, "role_limits", None) or DEFAULT_ROLE_LIMITS,
         "enabled_modules": settings.enabled_modules,
         "system_prompt": settings.system_prompt,
     }
