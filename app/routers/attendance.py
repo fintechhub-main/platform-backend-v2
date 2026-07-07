@@ -89,6 +89,53 @@ async def student_attendance_stats(
     return result
 
 
+@router.get("/my")
+async def my_attendance(
+    group_id: Optional[uuid.UUID] = Query(None),
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Student's own attendance records + summary stats. No admin permission required."""
+    from sqlalchemy import case as sa_case
+    q = select(Attendance).where(Attendance.student_id == current_user.id)
+    if group_id:
+        q = q.where(Attendance.group_id == group_id)
+    if date_from:
+        q = q.where(Attendance.date >= date_from)
+    if date_to:
+        q = q.where(Attendance.date <= date_to)
+    rows = (await db.execute(q.order_by(Attendance.date.desc()))).scalars().all()
+
+    total   = len(rows)
+    present = sum(1 for r in rows if str(r.status) in {"present", "online", "late"})
+    absent  = sum(1 for r in rows if str(r.status) == "absent")
+    grades  = [r.grade for r in rows if r.grade is not None]
+    grade_avg = round(sum(grades) / len(grades), 1) if grades else None
+
+    return {
+        "records": [
+            {
+                "id": str(r.id),
+                "group_id": str(r.group_id),
+                "date": r.date.isoformat(),
+                "status": str(r.status),
+                "grade": r.grade,
+                "note": r.note if hasattr(r, "note") else None,
+            }
+            for r in rows
+        ],
+        "stats": {
+            "total": total,
+            "present": present,
+            "absent": absent,
+            "attendance_pct": round(present / total * 100, 1) if total > 0 else 0.0,
+            "grade_avg": grade_avg,
+        },
+    }
+
+
 @router.post("", response_model=AttendanceOut, status_code=201)
 async def create_attendance(data: AttendanceCreate, db: AsyncSession = Depends(get_db), current_user=Depends(require_permission("attendance", "create"))):
     att = Attendance(**data.model_dump())

@@ -24,11 +24,19 @@ async def my_groups(
     q = (
         select(Group)
         .join(GroupStudent, GroupStudent.group_id == Group.id)
+        .options(selectinload(Group.teacher), selectinload(Group.course))
         .where(GroupStudent.student_id == current_user.id)
         .order_by(Group.start_date.desc())
     )
     result = await db.execute(q)
-    return result.scalars().all()
+    groups = result.scalars().all()
+    out = []
+    for g in groups:
+        data = GroupOut.model_validate(g)
+        data.teacher_name = g.teacher.full_name if g.teacher else None
+        data.course_title = g.course.title if g.course else None
+        out.append(data)
+    return out
 
 
 @router.get("", response_model=List[GroupOut])
