@@ -177,6 +177,7 @@ async def root():
 _STUDENT_PATHS = {
     "/api/v1/auth/login",
     "/api/v1/auth/refresh",
+    "/api/v1/auth/register",
     "/api/v1/auth/change-password",
     "/api/v1/users/me",
     "/api/v1/users/me/fcm-token",
@@ -232,6 +233,14 @@ _STUDENT_PATHS = {
     "/api/v1/group-projects/{project_id}",
     "/api/v1/group-projects/{project_id}/tasks/{task_id}",
     "/api/v1/group-projects/{project_id}/tasks/{task_id}/comments",
+    "/api/v1/lessons/modules",
+    "/api/v1/lessons/{lesson_id}",
+    "/api/v1/lessons/{lesson_id}/quiz",
+    "/api/v1/exams/{exam_id}",
+    "/api/v1/exams/{exam_id}/submit",
+    "/api/v1/exams/submissions",
+    "/api/v1/practicum/teams",
+    "/api/v1/practicum/teams/{team_id}/tasks",
 }
 
 
