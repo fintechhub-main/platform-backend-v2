@@ -44,7 +44,7 @@ async def chat(
 
 async def _openai_chat(settings, messages, system_prompt):
     from openai import AsyncOpenAI
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
+    client = AsyncOpenAI(api_key=(settings.openai_api_key or "").strip())
     sys_msg = [{"role": "system", "content": system_prompt or "You are a helpful educational assistant. Respond in Uzbek."}]
     resp = await client.chat.completions.create(
         model=settings.openai_model or "gpt-4o-mini",
@@ -72,7 +72,7 @@ async def _gemini_chat(settings, messages, system_prompt):
 
 async def _claude_chat(settings, messages, system_prompt):
     import anthropic
-    client = anthropic.AsyncAnthropic(api_key=settings.claude_api_key)
+    client = anthropic.AsyncAnthropic(api_key=(settings.claude_api_key or "").strip())
     resp = await client.messages.create(
         model=settings.claude_model or "claude-haiku-4-5-20251001",
         max_tokens=1000,
@@ -95,7 +95,7 @@ async def _deepseek_chat(settings, messages, system_prompt):
         resp = await client.post(
             "https://api.deepseek.com/v1/chat/completions",
             headers={
-                "Authorization": f"Bearer {settings.deepseek_api_key}",
+                "Authorization": f"Bearer {(settings.deepseek_api_key or '').strip()}",
                 "Content-Type": "application/json",
             },
             json=payload,
