@@ -15,6 +15,8 @@ class Product(Base):
     name: Mapped[str] = mapped_column(String(250))
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     image: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    icon: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, default="star")
+    category: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, default="Boshqa")
     coins: Mapped[int] = mapped_column(Integer, default=0)
     price_sum: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     quantity: Mapped[int] = mapped_column(Integer, default=10)

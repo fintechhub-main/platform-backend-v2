@@ -17,18 +17,33 @@ class ProductCreate(BaseModel):
     name: str
     description: Optional[str] = None
     image: Optional[str] = None
-    coins: int = 0
+    icon: Optional[str] = "star"
+    category: Optional[str] = "Boshqa"
+    # Accept both 'price' (frontend alias) and 'coins' (native)
+    price: Optional[int] = None
+    coins: Optional[int] = None
     price_sum: Optional[int] = None
-    quantity: int = 10
+    stock: Optional[int] = None   # frontend alias for quantity
+    quantity: Optional[int] = None
     is_active: bool = True
+
+    def effective_coins(self) -> int:
+        return self.price or self.coins or 0
+
+    def effective_quantity(self) -> int:
+        return self.stock or self.quantity or 10
 
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     image: Optional[str] = None
+    icon: Optional[str] = None
+    category: Optional[str] = None
+    price: Optional[int] = None   # frontend alias
     coins: Optional[int] = None
     price_sum: Optional[int] = None
+    stock: Optional[int] = None   # frontend alias
     quantity: Optional[int] = None
     is_active: Optional[bool] = None
 
@@ -44,8 +59,12 @@ def _product_out(p: Product):
         "name": p.name,
         "description": p.description,
         "image": p.image,
+        "icon": p.icon or "star",
+        "category": p.category or "Boshqa",
+        "price": p.coins,      # frontend field alias
         "coins": p.coins,
         "price_sum": p.price_sum,
+        "stock": p.quantity,   # frontend field alias
         "quantity": p.quantity,
         "is_active": p.is_active,
         "created_at": p.created_at.isoformat(),
@@ -88,10 +107,20 @@ async def list_products(
 @router.post("/products")
 async def create_product(
     data: ProductCreate,
-    _=Depends(require_permission("settings", "create")),
+    _=Depends(require_permission("coins", "create")),
     db: AsyncSession = Depends(get_db),
 ):
-    p = Product(**data.model_dump())
+    p = Product(
+        name=data.name,
+        description=data.description,
+        image=data.image,
+        icon=data.icon,
+        category=data.category,
+        coins=data.effective_coins(),
+        price_sum=data.price_sum,
+        quantity=data.effective_quantity(),
+        is_active=data.is_active,
+    )
     db.add(p)
     await db.commit()
     await db.refresh(p)
@@ -102,15 +131,26 @@ async def create_product(
 async def update_product(
     product_id: uuid.UUID,
     data: ProductUpdate,
-    _=Depends(require_permission("settings", "update")),
+    _=Depends(require_permission("coins", "update")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Product).where(Product.id == product_id))
     p = result.scalar_one_or_none()
     if not p:
         raise HTTPException(404, "Mahsulot topilmadi")
-    for k, v in data.model_dump(exclude_unset=True).items():
-        setattr(p, k, v)
+    fields = data.model_dump(exclude_unset=True)
+    # Resolve aliases: price→coins, stock→quantity
+    if "price" in fields and "coins" not in fields:
+        fields["coins"] = fields.pop("price")
+    else:
+        fields.pop("price", None)
+    if "stock" in fields and "quantity" not in fields:
+        fields["quantity"] = fields.pop("stock")
+    else:
+        fields.pop("stock", None)
+    for k, v in fields.items():
+        if hasattr(p, k):
+            setattr(p, k, v)
     await db.commit()
     await db.refresh(p)
     return _product_out(p)
@@ -119,7 +159,7 @@ async def update_product(
 @router.delete("/products/{product_id}", status_code=204)
 async def delete_product(
     product_id: uuid.UUID,
-    _=Depends(require_permission("settings", "delete")),
+    _=Depends(require_permission("coins", "delete")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Product).where(Product.id == product_id))

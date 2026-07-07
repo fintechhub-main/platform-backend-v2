@@ -14,6 +14,7 @@ from app.models.room import Room
 from app.models.staff_profile import StaffProfile
 from app.models.payment import Payment, PaymentRefund
 from app.models.coin import CoinTransaction
+from app.models.coin_rule import CoinRule
 from app.models.permission import RolePermission
 from app.models.discount import Discount
 from app.models.group_progress import GroupModuleAccess, GroupLessonDone
@@ -43,7 +44,7 @@ __all__ = [
     "Exam", "ExamSubmission",
     "Fine", "Vacancy", "VacancyApplicant",
     "Certificate", "Booking", "Room", "StaffProfile",
-    "Payment", "PaymentRefund", "PaymentLog", "CoinTransaction", "RolePermission",
+    "Payment", "PaymentRefund", "PaymentLog", "CoinTransaction", "CoinRule", "RolePermission",
     "Discount", "GroupModuleAccess", "GroupLessonDone",
     "Branch", "PracticumTeam", "PracticumTask",
     "AuditLog", "AISettings", "TelegramSource", "IntegrationSettings",
