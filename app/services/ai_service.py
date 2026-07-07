@@ -32,7 +32,14 @@ async def chat(
         else:
             return f"Noma'lum provider: {provider}"
     except Exception as e:
-        return f"AI xatosi: {str(e)}"
+        err = str(e)
+        if "Connection error" in err or "connect" in err.lower():
+            return "AI xatosi: Serverdan API ga ulanib bo'lmadi. API kaliti va tarmoq sozlamalarini tekshiring."
+        if "401" in err or "Unauthorized" in err or "Invalid API key" in err:
+            return "AI xatosi: API kalit noto'g'ri yoki muddati o'tgan. Settings → AI sozlamalarini tekshiring."
+        if "429" in err or "rate" in err.lower():
+            return "AI xatosi: API so'rovlar limiti oshdi. Biroz kuting."
+        return f"AI xatosi: {err}"
 
 
 async def _openai_chat(settings, messages, system_prompt):
@@ -76,10 +83,12 @@ async def _claude_chat(settings, messages, system_prompt):
 
 
 async def _deepseek_chat(settings, messages, system_prompt):
+    import httpx
     from openai import AsyncOpenAI
     client = AsyncOpenAI(
         api_key=settings.deepseek_api_key,
-        base_url="https://api.deepseek.com"
+        base_url="https://api.deepseek.com/v1",
+        http_client=httpx.AsyncClient(timeout=60.0),
     )
     sys_msg = [{"role": "system", "content": system_prompt or "You are a helpful educational assistant. Respond in Uzbek."}]
     resp = await client.chat.completions.create(
