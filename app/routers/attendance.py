@@ -100,6 +100,46 @@ async def missed_attendance(
     return {"items": items, "total": total}
 
 
+@router.get("/group-monthly-stats")
+async def group_monthly_stats(
+    group_id: uuid.UUID = Query(...),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_permission("attendance", "view")),
+):
+    """Group uchun oylik statistika — oy kartalari uchun."""
+    from sqlalchemy import extract, case
+
+    rows = (await db.execute(
+        select(
+            extract('year', Attendance.date).label('year'),
+            extract('month', Attendance.date).label('month_num'),
+            func.count(func.distinct(Attendance.date)).label('total_lessons'),
+            func.count(Attendance.id).label('total_records'),
+            func.count(Attendance.grade).label('graded_records'),
+            func.sum(
+                case((Attendance.status.in_(['present', 'online', 'late']), 1), else_=0)
+            ).label('present_records'),
+        )
+        .where(Attendance.group_id == group_id)
+        .group_by(extract('year', Attendance.date), extract('month', Attendance.date))
+        .order_by(extract('year', Attendance.date), extract('month', Attendance.date))
+    )).all()
+
+    result = []
+    for r in rows:
+        total_records = r.total_records or 0
+        graded_records = r.graded_records or 0
+        present_records = int(r.present_records or 0)
+        month_str = f"{int(r.month_num):02d}.{int(r.year)}"
+        result.append({
+            "month": month_str,
+            "total_lessons": r.total_lessons,
+            "graded_pct": round(graded_records / total_records * 100) if total_records > 0 else 0,
+            "present_pct": round(present_records / total_records * 100) if total_records > 0 else 0,
+        })
+    return result
+
+
 @router.get("", response_model=List[AttendanceOut])
 async def list_attendance(
     group_id: uuid.UUID = Query(None),
