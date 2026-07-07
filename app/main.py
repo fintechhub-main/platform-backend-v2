@@ -27,6 +27,7 @@ from app.routers import (
     general_settings, events, holidays, notifications, shop, cards,
     book_presentations, group_projects, resume, appointments,
 )
+from app.routers import lesson_homework
 from app.routers.telegram_auth import router as telegram_auth_router, set_webhook
 from app.utils.daily_attendance import run_daily_attendance
 from app.dependencies import require_admin
@@ -132,6 +133,7 @@ app.include_router(users.router,           prefix="/api/v1")
 app.include_router(courses.router,         prefix="/api/v1")
 app.include_router(groups.router,          prefix="/api/v1")
 app.include_router(lessons.router,         prefix="/api/v1")
+app.include_router(lesson_homework.router, prefix="/api/v1")
 app.include_router(attendance.router,      prefix="/api/v1")
 app.include_router(fines.router,           prefix="/api/v1")
 app.include_router(vacancies.router,       prefix="/api/v1")
@@ -198,6 +200,7 @@ _STUDENT_PATHS = {
     "/api/v1/certificates",
     "/api/v1/coins",
     "/api/v1/coins/balance/{student_id}",
+    "/api/v1/coins/rules",
     "/api/v1/events",
     "/api/v1/events/{event_id}/registrations",
     "/api/v1/events/{event_id}/register",
@@ -238,6 +241,8 @@ _STUDENT_PATHS = {
     "/api/v1/lessons/modules",
     "/api/v1/lessons/{lesson_id}",
     "/api/v1/lessons/{lesson_id}/quiz",
+    "/api/v1/lessons/{lesson_id}/homework",
+    "/api/v1/lessons/homework/my/{lesson_id}",
     "/api/v1/exams/{exam_id}",
     "/api/v1/exams/{exam_id}/submit",
     "/api/v1/exams/submissions",
