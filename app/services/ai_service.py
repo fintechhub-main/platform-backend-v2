@@ -83,17 +83,22 @@ async def _claude_chat(settings, messages, system_prompt):
 
 
 async def _deepseek_chat(settings, messages, system_prompt):
+    # openai SDK v2 + DeepSeek da connection muammo bo'lgani uchun httpx to'g'ridan-to'g'ri ishlatiladi
     import httpx
-    from openai import AsyncOpenAI
-    client = AsyncOpenAI(
-        api_key=settings.deepseek_api_key,
-        base_url="https://api.deepseek.com/v1",
-        http_client=httpx.AsyncClient(timeout=60.0),
-    )
-    sys_msg = [{"role": "system", "content": system_prompt or "You are a helpful educational assistant. Respond in Uzbek."}]
-    resp = await client.chat.completions.create(
-        model=settings.deepseek_model or "deepseek-chat",
-        messages=sys_msg + messages,
-        max_tokens=1000,
-    )
-    return resp.choices[0].message.content
+    sys_msg = {"role": "system", "content": system_prompt or "You are a helpful educational assistant. Respond in Uzbek."}
+    payload = {
+        "model": settings.deepseek_model or "deepseek-chat",
+        "messages": [sys_msg] + messages,
+        "max_tokens": 1000,
+    }
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        resp = await client.post(
+            "https://api.deepseek.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {settings.deepseek_api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+        )
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"]
