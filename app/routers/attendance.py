@@ -248,17 +248,23 @@ async def bulk_attendance(data: BulkAttendanceCreate, db: AsyncSession = Depends
             )
         )
         att = existing.scalar_one_or_none()
+        status_val = item.status.value if hasattr(item.status, "value") else str(item.status)
+        safe_grade = None if status_val in _NO_GRADE_STATUSES else item.grade
         if att:
             att.status = item.status
-            att.grade = item.grade
+            att.grade = safe_grade
         else:
-            att = Attendance(group_id=data.group_id, date=data.date, **item.model_dump())
+            att = Attendance(group_id=data.group_id, date=data.date,
+                             student_id=item.student_id, status=item.status, grade=safe_grade)
             db.add(att)
         created.append(att)
     await db.commit()
     for att in created:
         await db.refresh(att)
     return created
+
+
+_NO_GRADE_STATUSES = {"absent", "excused"}
 
 
 @router.patch("/{att_id}", response_model=AttendanceOut)
@@ -268,6 +274,20 @@ async def update_attendance(att_id: uuid.UUID, data: AttendanceUpdate, db: Async
     if not att:
         raise HTTPException(404, "Not found")
     changes = {k: v for k, v in data.model_dump(exclude_none=True).items()}
+
+    # Determine effective status after this update
+    new_status = changes.get("status")
+    effective_status = (new_status.value if hasattr(new_status, "value") else str(new_status)) if new_status else \
+                       (att.status.value if hasattr(att.status, "value") else str(att.status))
+
+    if "grade" in changes and effective_status in _NO_GRADE_STATUSES:
+        raise HTTPException(400, f"'{effective_status}' holatdagi talabaga baho qo'yib bo'lmaydi")
+
+    # If status changes to absent/excused, clear any existing grade
+    if new_status and effective_status in _NO_GRADE_STATUSES:
+        changes.pop("grade", None)
+        att.grade = None
+
     old_status = att.status
     old_grade = att.grade
     for k, v in changes.items():
