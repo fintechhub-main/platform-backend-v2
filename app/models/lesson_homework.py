@@ -55,6 +55,13 @@ class LessonHomeworkSubmission(Base):
 
     score: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     feedback: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # AI taklif qilgan baho — ustoz o'zgartirsa ham tarix sifatida saqlanadi
+    ai_score: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    ai_feedback: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    graded_by: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    graded_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    file_name: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
     status: Mapped[SubmissionStatus] = mapped_column(SAEnum(SubmissionStatus), default=SubmissionStatus.pending)
     submitted_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

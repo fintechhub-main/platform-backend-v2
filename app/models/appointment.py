@@ -18,6 +18,7 @@ class TeacherAppointment(Base):
     message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_confirm: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
     is_come: Mapped[bool] = mapped_column(Boolean, default=False)
+    cancel_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     student: Mapped["User"] = relationship("User", foreign_keys=[student_id])

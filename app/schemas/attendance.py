@@ -35,6 +35,7 @@ class BulkAttendanceItem(BaseModel):
     student_id: uuid.UUID
     status: AttendanceStatus = AttendanceStatus.present
     grade: Optional[int] = None
+    reason: Optional[str] = None
 
 
 class BulkAttendanceCreate(BaseModel):

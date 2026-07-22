@@ -21,7 +21,7 @@ DEFAULT_PAGES = [
     'payments', 'fines', 'vacancies', 'certificates', 'rooms', 'coins',
     'crm', 'events', 'assistant-teacher', 'practicum',
     'exams', 'homework', 'reports', 'blog', 'notifications',
-    'logs', 'ai-teacher', 'resume', 'my-lessons', 'users', 'settings', 'bookings',
+    'logs', 'ai-teacher', 'ai-chat', 'resume', 'my-lessons', 'users', 'settings', 'bookings',
 ]
 
 

@@ -10,6 +10,10 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.appointment import TeacherAppointment
+from app.models.assistant import AssistantDayOff, AssistantAvailability
+from app.services.notify import notify_user
+from app.services.teacher_bot import tb_send
+from app.utils.tz import fmt, parse_local
 from app.models.user import User
 
 router = APIRouter(prefix="/appointments", tags=["appointments"])
@@ -22,6 +26,7 @@ class AppointmentCreate(BaseModel):
 
 
 class AppointmentUpdate(BaseModel):
+    cancel_reason: Optional[str] = None
     date: Optional[str] = None
     message: Optional[str] = None
     is_confirm: Optional[bool] = None
@@ -41,6 +46,7 @@ def _out(a: TeacherAppointment):
         "date": a.date.isoformat(),
         "message": a.message,
         "is_confirm": a.is_confirm,
+        "cancel_reason": a.cancel_reason,
         "is_come": a.is_come,
         "created_at": a.created_at.isoformat(),
     }
@@ -100,14 +106,50 @@ async def create_appointment(
     if not teacher:
         raise HTTPException(404, "O'qituvchi topilmadi")
 
+    when = parse_local(data.date)
+
+    # Dam olish kuni yoki band slotga yozilmasin
+    off = (await db.execute(select(AssistantDayOff).where(
+        AssistantDayOff.assistant_id == teacher_id,
+        AssistantDayOff.date == when.date()))).scalars().first()
+    if off:
+        raise HTTPException(400, "Bu kuni yordamchi ustoz dam oladi")
+    busy = (await db.execute(select(TeacherAppointment).where(
+        TeacherAppointment.teacher_id == teacher_id,
+        TeacherAppointment.date == when,
+        (TeacherAppointment.is_confirm.is_(None)) | (TeacherAppointment.is_confirm.is_(True)),
+    ))).scalars().first()
+    if busy:
+        raise HTTPException(400, "Bu vaqt allaqachon band")
+
     appt = TeacherAppointment(
         student_id=current_user.id,
         teacher_id=teacher_id,
-        date=datetime.fromisoformat(data.date),
+        date=when,
         message=data.message,
     )
     db.add(appt)
     await db.commit()
+
+    # Yordamchi ustozga xabar (Telegram + ilova ichida)
+    when_s = fmt(when)
+    try:
+        await notify_user(db, teacher_id, "Yangi yozuv",
+                          f"{current_user.full_name} — {when_s}",
+                          notification_type="appointment")
+    except Exception:
+        pass
+    if teacher.telegram_id:
+        txt = (f"📌 <b>Yangi yozuv</b>\n\n"
+               f"👤 O'quvchi: {current_user.full_name}\n"
+               f"🕒 Vaqt: {when_s}\n")
+        if data.message:
+            txt += f"💬 Izoh: {data.message}\n"
+        txt += "\nTasdiqlash yoki bekor qilish uchun /start → Yozuvlarim"
+        try:
+            await tb_send(teacher.telegram_id, txt)
+        except Exception:
+            pass
 
     result = await db.execute(
         select(TeacherAppointment)
@@ -140,12 +182,35 @@ async def update_appointment(
         raise HTTPException(403, "Ruxsat yo'q")
 
     updates = data.model_dump(exclude_unset=True)
+    if role == "student":
+        # O'quvchi o'z yozuvini faqat bekor qila oladi yoki matnini tahrirlaydi —
+        # tasdiqlash va "keldi" belgisi yordamchi ustozning ixtiyorida.
+        if updates.get("is_confirm") is True:
+            raise HTTPException(403, "Yozuvni faqat yordamchi ustoz tasdiqlaydi")
+        if "is_come" in updates:
+            raise HTTPException(403, "Ruxsat yo'q")
     if "date" in updates and updates["date"]:
-        appt.date = datetime.fromisoformat(updates.pop("date"))
+        appt.date = parse_local(updates.pop("date"))
+    # Bekor qilinsa — sabab majburiy
+    if updates.get("is_confirm") is False and not (updates.get("cancel_reason") or appt.cancel_reason):
+        raise HTTPException(400, "Bekor qilish sababini yozing")
     for k, v in updates.items():
         setattr(appt, k, v)
 
     await db.commit()
+
+    # O'quvchiga natijani bildiramiz
+    if "is_confirm" in updates and updates["is_confirm"] is not None:
+        when_s = fmt(appt.date)
+        if updates["is_confirm"]:
+            title, body = "Yozuvingiz tasdiqlandi ✅", f"{when_s} — yordamchi ustoz tasdiqladi"
+        else:
+            title = "Yozuvingiz bekor qilindi ❌"
+            body = f"{when_s} — sabab: {updates.get('cancel_reason') or appt.cancel_reason or '—'}"
+        try:
+            await notify_user(db, appt.student_id, title, body, notification_type="appointment")
+        except Exception:
+            pass
     await db.refresh(appt)
     return _out(appt)
 

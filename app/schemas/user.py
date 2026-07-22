@@ -31,6 +31,7 @@ class UserUpdate(BaseModel):
     mother_phone: Optional[str] = None
     father_name: Optional[str] = None
     father_phone: Optional[str] = None
+    telegram_id: Optional[str] = None
 
 
 class UserOut(BaseModel):
@@ -52,6 +53,8 @@ class UserOut(BaseModel):
     mother_phone: Optional[str] = None
     father_name: Optional[str] = None
     father_phone: Optional[str] = None
+    telegram_id: Optional[str] = None
+    must_change_password: bool = False
     branch_id: Optional[uuid.UUID] = None
     created_at: Optional[datetime] = None
 

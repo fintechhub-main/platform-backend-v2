@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_BOT_USERNAME: str = "Malumotimbot"
     TELEGRAM_WEBHOOK_SECRET: str = ""
+    # Davomat xabarlari uchun alohida bot (@Fintech_davomat_bot)
+    ATTENDANCE_BOT_TOKEN: str = ""
+    # Ustozlar/o'quvchilar boti (@fintechhublmsbot)
+    TEACHER_BOT_TOKEN: str = ""
+    TEACHER_BOT_USERNAME: str = "fintechhublmsbot"
     REDIS_URL: str = "redis://localhost:6379/0"
     MONITOR_BOT_TOKEN: str = ""
     MONITOR_CHAT_ID: str = ""

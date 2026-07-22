@@ -28,8 +28,17 @@ from app.routers import (
     book_presentations, group_projects, resume, appointments,
 )
 from app.routers import lesson_homework
+from app.routers import ai_data_chat
+from app.routers import student as student_router_mod
 from app.routers.telegram_auth import router as telegram_auth_router, set_webhook
 from app.utils.daily_attendance import run_daily_attendance
+from app.utils.push_jobs import run_class_reminder, run_payment_reminder
+from app.utils.attendance_telegram import send_daily_attendance_telegram
+from app.routers import teacher_bot as teacher_bot_router_mod
+from app.routers import assistant as assistant_router_mod
+from app.services.teacher_bot import tb_set_webhook
+from app.utils.attendance_reminder import run_attendance_reminder
+from app.services.fcm import init_firebase
 from app.dependencies import require_admin
 from app.database import get_db
 from app.redis_client import get_redis, close_redis
@@ -59,19 +68,45 @@ async def _vacancy_fetch_job():
             logger.error(f"[vacancy_fetch] xato: {e}")
 
 
+async def _attendance_reminder_job():
+    async with async_session() as db:
+        try:
+            await run_attendance_reminder(db)
+        except Exception as e:
+            logger.error(f"[att_reminder] xato: {e}")
+
+
+async def _attendance_telegram_job():
+    async with async_session() as db:
+        try:
+            await send_daily_attendance_telegram(db)
+        except Exception as e:
+            logger.error(f"[attendance_telegram] xato: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     scheduler.add_job(_daily_job, CronTrigger(hour=6, minute=0), id="daily_attendance", replace_existing=True)
     # Har soatda vakansiya yig'ish
     scheduler.add_job(_vacancy_fetch_job, CronTrigger(minute=0), id="vacancy_auto_fetch", replace_existing=True)
+    scheduler.add_job(run_class_reminder, CronTrigger(minute="*/5"), id="class_reminder", replace_existing=True)
+    scheduler.add_job(run_payment_reminder, CronTrigger(hour=9, minute=0), id="payment_reminder", replace_existing=True)
+    # Har kuni 09:00 (Toshkent vaqti) da kechagi davomatni guruh Telegramiga yuborish
+    scheduler.add_job(_attendance_telegram_job, CronTrigger(hour=9, minute=0, timezone="Asia/Tashkent"), id="attendance_telegram", replace_existing=True)
+    # Dars tugagach davomat qilinmasa — ustozga eslatma (har 5 daqiqada)
+    scheduler.add_job(_attendance_reminder_job, CronTrigger(minute="*/5"),
+                      id="attendance_reminder", replace_existing=True)
     scheduler.start()
-    logger.info("Scheduler ishga tushdi (daily_attendance 06:00, vacancy_fetch har soat)")
+    init_firebase()
+    logger.info("Scheduler ishga tushdi (daily_attendance 06:00, vacancy_fetch har soat, class_reminder har 5 min, payment_reminder 09:00)")
     # Redis ulanish
     await get_redis()
     logger.info("Redis ulandi")
     # Register Telegram webhook
     result = await set_webhook("https://lms-test.fintechhub.uz")
     logger.info(f"Telegram webhook: {result}")
+    tb_res = await tb_set_webhook("https://lms-test.fintechhub.uz")
+    logger.info(f"Teacher bot webhook: {tb_res}")
     await send_alert("✅ <b>EduHub backend ishga tushdi</b>\nlms-test.fintechhub.uz")
     yield
     scheduler.shutdown()
@@ -134,6 +169,8 @@ app.include_router(courses.router,         prefix="/api/v1")
 app.include_router(groups.router,          prefix="/api/v1")
 app.include_router(lessons.router,         prefix="/api/v1")
 app.include_router(lesson_homework.router, prefix="/api/v1")
+app.include_router(ai_data_chat.router, prefix="/api/v1")
+app.include_router(student_router_mod.router, prefix="/api/v1")
 app.include_router(attendance.router,      prefix="/api/v1")
 app.include_router(fines.router,           prefix="/api/v1")
 app.include_router(vacancies.router,       prefix="/api/v1")
@@ -169,6 +206,8 @@ app.include_router(book_presentations.router,  prefix="/api/v1")
 app.include_router(group_projects.router,      prefix="/api/v1")
 app.include_router(resume.router,              prefix="/api/v1")
 app.include_router(appointments.router,        prefix="/api/v1")
+app.include_router(teacher_bot_router_mod.router, prefix="/api/v1")
+app.include_router(assistant_router_mod.router,   prefix="/api/v1")
 
 
 @app.get("/")

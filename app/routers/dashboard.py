@@ -315,7 +315,18 @@ async def get_stats(
         }
 
     # ── 12. Yesterday absentees ───────────────────────────────────────────────
+    # Ro'yxat ko'rsatish uchun 20 taga cheklangan, lekin "jami" son alohida,
+    # cheklovsiz so'rov bilan hisoblanadi — aks holda frontend "20 kishi"
+    # deb ko'rsatib, haqiqiy sonni (masalan 96) yashirib qo'yardi.
     yesterday = today - timedelta(days=1)
+    _abs_count_q = (
+        select(func.count(Attendance.id))
+        .where(Attendance.date == yesterday, Attendance.status == AttendanceStatus.absent)
+    )
+    if _branch_uuid:
+        _abs_count_q = _abs_count_q.join(Group, Group.id == Attendance.group_id).where(Group.branch_id == _branch_uuid)
+    yesterday_absent_total = (await db.execute(_abs_count_q)).scalar_one()
+
     _abs_q = (
         select(User.id, User.full_name, User.phone, Attendance.group_id)
         .join(Attendance, Attendance.student_id == User.id)
@@ -525,6 +536,7 @@ async def get_stats(
         "payment_stats":    payment_stats,
         "birthdays_today":  birthdays_today,
         "yesterday_absent": yesterday_absent,
+        "yesterday_absent_total": yesterday_absent_total,
         "dropped_students": dropped_students,
         "churn_risk":       churn_risk,
         "today_classes":    today_classes,

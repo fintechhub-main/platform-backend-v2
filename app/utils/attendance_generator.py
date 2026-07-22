@@ -7,6 +7,7 @@ from datetime import date, timedelta
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.models.attendance import Attendance, AttendanceStatus
 from app.models.group import Group, GroupStudent
@@ -95,21 +96,25 @@ async def generate_attendance_for_group(
     )
     existing_set = {(str(r.student_id), r.date) for r in existing_res.all()}
 
-    created = 0
+    rows = []
     for lesson_date in dates:
         for student_id in student_ids:
             if (str(student_id), lesson_date) not in existing_set:
-                db.add(Attendance(
-                    id=uuid.uuid4(),
-                    group_id=group.id,
-                    student_id=student_id,
-                    date=lesson_date,
-                    status=AttendanceStatus.absent,
-                    grade=None,
-                ))
-                created += 1
+                rows.append({
+                    "id": uuid.uuid4(),
+                    "group_id": group.id,
+                    "student_id": student_id,
+                    "date": lesson_date,
+                    "status": AttendanceStatus.absent,
+                    "grade": None,
+                })
 
-    if created:
+    if rows:
+        # ON CONFLICT DO NOTHING — bir vaqtda ishga tushsa ham duplikat yaratmaydi
+        stmt = pg_insert(Attendance).values(rows).on_conflict_do_nothing(
+            index_elements=["group_id", "student_id", "date"]
+        )
+        await db.execute(stmt)
         await db.commit()
 
-    return created
+    return len(rows)

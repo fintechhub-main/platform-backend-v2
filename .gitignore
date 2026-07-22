@@ -46,3 +46,7 @@ logs/
 .coverage
 htmlcov/
 .pytest_cache/
+
+# Server-only secrets/data
+firebase-service-account.json
+media/

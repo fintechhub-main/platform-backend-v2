@@ -8,7 +8,7 @@ import uuid
 from app.database import get_db
 from app.models.certificate import Certificate
 from app.schemas.certificate import CertificateCreate, CertificateOut
-from app.dependencies import get_current_user, require_permission
+from app.dependencies import get_current_user, require_permission, is_student
 
 router = APIRouter(prefix="/certificates", tags=["certificates"])
 
@@ -18,9 +18,12 @@ async def list_certificates(
     student_id: Optional[uuid.UUID] = Query(None),
     course_id: Optional[uuid.UUID] = Query(None),
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_permission("certificates", "view")),
+    current_user=Depends(require_permission("certificates", "view")),
 ):
     q = select(Certificate).options(selectinload(Certificate.student), selectinload(Certificate.course))
+    # O'quvchi faqat o'z sertifikatlarini ko'radi
+    if is_student(current_user):
+        student_id = current_user.id
     if student_id:
         q = q.where(Certificate.student_id == student_id)
     if course_id:
@@ -51,7 +54,7 @@ async def create_certificate(data: CertificateCreate, db: AsyncSession = Depends
 
 
 @router.get("/{cert_id}", response_model=CertificateOut)
-async def get_certificate(cert_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+async def get_certificate(cert_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
     result = await db.execute(
         select(Certificate)
         .options(selectinload(Certificate.student), selectinload(Certificate.course))
@@ -60,6 +63,9 @@ async def get_certificate(cert_id: uuid.UUID, db: AsyncSession = Depends(get_db)
     cert = result.scalar_one_or_none()
     if not cert:
         raise HTTPException(404, "Certificate not found")
+    # O'quvchi faqat o'z sertifikatini ochadi
+    if is_student(current_user) and cert.student_id != current_user.id:
+        raise HTTPException(403, "Ruxsat yo'q")
     return cert
 
 

@@ -15,7 +15,7 @@ from app.models.group import Group, GroupStudent
 from app.models.user import User
 from app.models.discount import Discount, DiscountStatus, DiscountType
 from app.schemas.payment import PaymentCreate, PaymentUpdate, PaymentOut, PaymentRefundCreate, PaymentRefundOut
-from app.dependencies import get_current_user, require_permission
+from app.dependencies import is_student, get_current_user, require_permission
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -243,8 +243,11 @@ async def list_payments(
     skip: int = 0,
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_permission("payments", "view")),
+    current_user=Depends(require_permission("payments", "view")),
 ):
+    # O'quvchi faqat o'z to'lovlarini ko'radi
+    if is_student(current_user):
+        student_id = current_user.id
     q = (
         select(Payment, User.full_name, User.phone, Group.name, Group.teacher_id)
         .outerjoin(User,  User.id  == Payment.student_id)

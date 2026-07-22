@@ -9,9 +9,13 @@ from app.models.user import User
 from app.models.staff_profile import StaffProfile
 from app.models.group import Group
 from app.schemas.staff import StaffOut, StaffProfileUpdate
-from app.dependencies import get_current_user, require_permission
+from app.dependencies import get_current_user, require_permission, _get_role_str
 
 router = APIRouter(prefix="/staff", tags=["staff"])
+
+# Maosh/KPI maydonlari — faqat admin o'zgartira oladi
+_SALARY_FIELDS = ("salary_history", "monthly_earnings", "kpi_attendance",
+                  "kpi_results", "kpi_loss", "rating")
 
 
 def _build_out(user: User, profile: StaffProfile) -> dict:
@@ -103,7 +107,17 @@ async def update_staff(
         raise HTTPException(404, "Staff not found")
     user, profile = row
 
+    # Faqat admin/superadmin istalgan xodimni tahrirlaydi;
+    # boshqalar faqat o'zini, va maosh/KPI maydonlariga tegolmaydi.
+    role = _get_role_str(current_user)
+    is_admin = role in ("admin", "superadmin")
+    if not is_admin and current_user.id != user_id:
+        raise HTTPException(403, "Faqat o'zingizni tahrirlashingiz mumkin")
+
     data = body.model_dump(exclude_none=True)
+    if not is_admin:
+        for locked in _SALARY_FIELDS:
+            data.pop(locked, None)
     for field in ("specializations", "qualifications", "week_schedule", "performance_history", "salary_history"):
         if field in data and not isinstance(data[field], str):
             data[field] = json.dumps(data[field], ensure_ascii=False)

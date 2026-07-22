@@ -8,7 +8,8 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.lesson import Module, Lesson
 from app.models.group_progress import GroupModuleAccess, GroupLessonDone
-from app.dependencies import get_current_user, require_permission
+from app.dependencies import get_current_user, require_permission, check_permission, is_student
+from app.models.group import GroupStudent
 
 router = APIRouter(prefix="/groups", tags=["group-progress"])
 
@@ -18,9 +19,27 @@ async def get_group_progress(
     group_id: uuid.UUID,
     course_id: uuid.UUID = Query(...),
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_permission("groups", "view")),
+    current_user=Depends(get_current_user),
 ):
-    """Return modules with lessons + per-group open/done state."""
+    """Return modules with lessons + per-group open/done state.
+
+    O'quvchi umuman "groups" sahifasiga ruxsatga ega emas (boshqa
+    o'quvchilarning guruh ma'lumotini ko'rmasligi kerak) — lekin o'ZINING
+    o'qiyotgan guruhi uchun darslar progressini ko'ra olishi shart
+    (Darsliklarim sahifasi shu yerdan ma'lumot oladi). Shu sabab o'quvchi
+    uchun umumiy ruxsat o'rniga faqat "shu guruhga a'zomisan" tekshiruvi
+    qilinadi; boshqa rollar uchun odatdagidek groups:view talab qilinadi.
+    """
+    if is_student(current_user):
+        member = (await db.execute(select(GroupStudent).where(
+            GroupStudent.group_id == group_id,
+            GroupStudent.student_id == current_user.id,
+        ))).scalars().first()
+        if not member:
+            from fastapi import HTTPException
+            raise HTTPException(403, "Siz bu guruhga a'zo emassiz")
+    else:
+        await check_permission("groups", "view", current_user, db)
     modules = (await db.execute(
         select(Module)
         .options(selectinload(Module.lessons))
@@ -47,6 +66,7 @@ async def get_group_progress(
         lessons_out = []
         for les in mod.lessons:
             state = lesson_state.get(str(les.id))
+            lesson_open = les.is_open or (state.is_open if state else False)
             lessons_out.append({
                 "id": str(les.id),
                 "title": les.title,
@@ -55,6 +75,12 @@ async def get_group_progress(
                 "duration": les.duration,
                 "is_open": state.is_open if state else False,
                 "is_done": state.is_done if state else False,
+                # Yopiq darsning matni/video havolasi yuborilmaydi — o'quvchi
+                # tarmoq javobini o'qib ochilmagan dars kontentini ko'ra olmasin.
+                "content": les.content if lesson_open else None,
+                "video_url": les.video_url if lesson_open else None,
+                "code_lang": les.code_lang,
+                "has_terminal": les.has_terminal,
             })
         result.append({
             "id": str(mod.id),

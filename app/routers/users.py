@@ -10,10 +10,40 @@ from app.models.user import User, UserRole
 from app.models.group import Group, GroupStudent
 from app.models.staff_profile import StaffProfile
 from app.schemas.user import UserCreate, UserUpdate, UserOut
-from app.dependencies import get_current_user, require_permission
+from app.dependencies import get_current_user, require_permission, check_permission
 from app.utils.auth import hash_password
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+# /users endpoint barcha rollarni qaytaradi, shuning uchun ruxsatni so'ralayotgan
+# role ga qarab tekshiramiz: role=student -> students, role=teacher -> teachers,
+# aks holda (yoki role berilmagan bo'lsa) -> users. Bu o'qituvchiga faqat
+# 'students' ruxsati bilan talabalar ro'yxatini ko'rish imkonini beradi,
+# lekin admin/kassir akkauntlariga kirishni ochmaydi.
+_ROLE_PAGE_KEY = {"student": "students", "teacher": "teachers", "assistant_teacher": "teachers"}
+
+
+async def require_user_list_view(
+    role: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    page_key = _ROLE_PAGE_KEY.get(role, "users")
+    await check_permission(page_key, "view", current_user, db)
+    return current_user
+
+
+def _scope_students_to_teacher(q, current_user, role):
+    """O'qituvchi bo'lsa va role=student so'ralsa — faqat o'z guruhlaridagi talabalar."""
+    role_str = str(current_user.role.value if hasattr(current_user.role, "value") else current_user.role)
+    if role_str in ("teacher", "assistant_teacher") and role == "student":
+        q = q.where(User.id.in_(
+            select(GroupStudent.student_id)
+            .join(Group, Group.id == GroupStudent.group_id)
+            .where(Group.teacher_id == current_user.id)
+        ))
+    return q
 
 
 @router.get("/me", response_model=UserOut)
@@ -21,11 +51,22 @@ async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
+# O'zi o'zgartira oladigan maydonlar — shaxsiy/aloqa ma'lumotlari.
+# Institutsional yozuvlar (student_status, passport, birth_date, gender va h.k.)
+# faqat admin/xodim tomonidan /users/{id} orqali o'zgartiriladi, chunki ular
+# hisobotlarda va boshqa mantiqda ishlatiladi — o'quvchi o'zi o'zgartirsa
+# ma'lumotlar buziladi.
+_SELF_EDITABLE = {"full_name", "email", "avatar", "address", "telegram_id"}
+
+
 @router.patch("/me", response_model=UserOut)
 async def update_me(data: UserUpdate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    PROTECTED = {"role", "is_active", "password_hash", "token_version"}
+    role = str(current_user.role.value if hasattr(current_user.role, "value") else current_user.role)
+    # Admin/superadmin o'zini ham to'liqroq tahrirlashi mumkin (role/is_active bundan mustasno)
+    allowed = _SELF_EDITABLE if role not in ("admin", "superadmin") else (
+        set(data.model_fields.keys()) - {"role", "is_active"})
     for key, val in data.model_dump(exclude_none=True).items():
-        if key not in PROTECTED:
+        if key in allowed:
             setattr(current_user, key, val)
     await db.commit()
     await db.refresh(current_user)
@@ -114,9 +155,10 @@ async def count_users(
     group_id: Optional[uuid.UUID] = Query(None),
     course_id: Optional[uuid.UUID] = Query(None),
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_permission("students", "view")),
+    current_user: User = Depends(require_permission("students", "view")),
 ):
     q = _build_user_query(role, search, is_active, student_status, in_group, branch_id, group_id, course_id)
+    q = _scope_students_to_teacher(q, current_user, role)
     total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
     return {"total": total}
 
@@ -125,9 +167,10 @@ async def count_users(
 async def student_status_counts(
     branch_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_permission("students", "view")),
+    current_user: User = Depends(require_permission("students", "view")),
 ):
     q = select(User.student_status, func.count(User.id)).where(User.role == UserRole.student)
+    q = _scope_students_to_teacher(q, current_user, 'student')
     if branch_id:
         branch_uuid = uuid.UUID(branch_id)
         q = q.where(
@@ -160,12 +203,13 @@ async def list_users_slim(
     student_status: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_permission("users", "view")),
+    current_user: User = Depends(require_user_list_view),
 ):
     """Lightweight user list — returns only id and full_name for picker dropdowns."""
     q = select(User.id, User.full_name)
     if role:
         q = q.where(User.role == role)
+    q = _scope_students_to_teacher(q, current_user, role)
     if search:
         q = q.where(User.full_name.ilike(f"%{search}%") | User.phone.ilike(f"%{search}%"))
     if student_status:
@@ -204,9 +248,10 @@ async def list_users(
     skip: int = 0,
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_permission("users", "view")),
+    current_user: User = Depends(require_user_list_view),
 ):
     q = _build_user_query(role, search, is_active, student_status, in_group, branch_id, group_id, course_id)
+    q = _scope_students_to_teacher(q, current_user, role)
     result = await db.execute(q.offset(skip).limit(limit))
     return result.scalars().all()
 
@@ -241,11 +286,16 @@ async def create_user(data: UserCreate, db: AsyncSession = Depends(get_db), _=De
 
 
 @router.get("/{user_id}", response_model=UserOut)
-async def get_user(user_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_permission("users", "view"))):
+async def get_user(user_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(404, "User not found")
+    # Ruxsatni maqsadli foydalanuvchi roliga qarab tekshiramiz:
+    # student -> students.view, teacher -> teachers.view, aks holda users.view
+    target_role = str(user.role.value if hasattr(user.role, "value") else user.role)
+    page_key = _ROLE_PAGE_KEY.get(target_role, "users")
+    await check_permission(page_key, "view", current_user, db)
     return user
 
 

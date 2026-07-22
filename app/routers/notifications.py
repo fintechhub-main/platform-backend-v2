@@ -9,6 +9,9 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.dependencies import get_current_user, require_permission
 from app.models.notification import Notification
+from app.models.user import User
+from app.models.group import Group, GroupStudent
+from app.services.notify import notify_users_bulk
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -20,6 +23,16 @@ class NotificationCreate(BaseModel):
     notification_type: str = "system"
     priority: str = "normal"
     extra_data: Optional[dict] = None
+
+
+
+class SendBulkIn(BaseModel):
+    title: str
+    body: str
+    notification_type: str = "system"
+    group_id: Optional[str] = None
+    branch_id: Optional[str] = None
+    user_id: Optional[str] = None
 
 
 def _out(n: Notification):
@@ -122,3 +135,40 @@ async def create_notification(
     await db.commit()
     await db.refresh(notif)
     return _out(notif)
+
+
+@router.post("/send-bulk")
+async def send_bulk_notification(
+    data: SendBulkIn,
+    _=Depends(require_permission("settings", "create")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin sends push notification to a group, branch, or specific user."""
+    import uuid as _uuid
+    user_ids = []
+    if data.user_id:
+        user_ids = [_uuid.UUID(data.user_id)]
+    elif data.group_id:
+        result = await db.execute(
+            select(GroupStudent.student_id).where(GroupStudent.group_id == _uuid.UUID(data.group_id))
+        )
+        user_ids = [r[0] for r in result.all()]
+    elif data.branch_id:
+        result = await db.execute(
+            select(User.id).where(
+                User.branch_id == _uuid.UUID(data.branch_id),
+                User.role == "student",
+                User.is_active == True,
+            )
+        )
+        user_ids = [r[0] for r in result.all()]
+
+    if not user_ids:
+        return {"sent": 0}
+
+    await notify_users_bulk(
+        db, user_ids, title=data.title, body=data.body,
+        notification_type=data.notification_type,
+    )
+    await db.commit()
+    return {"sent": len(user_ids)}

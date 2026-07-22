@@ -111,6 +111,10 @@ async def telegram_webhook(
                         ex=_SESSION_TTL)
             await _send_message(chat_id, "❌ Bu ilovaga kirish ruxsati yo'q.")
         else:
+            # Telegram chat ID ni saqlab qo'yamiz — keyin shaxsiy xabar yuborish uchun
+            if str(user.telegram_id or "") != str(chat_id):
+                user.telegram_id = str(chat_id)
+                await db.commit()
             # H-1: tv qo'shildi — parol o'zgarsa token bekor bo'ladi
             access_token = create_access_token(
                 {"sub": str(user.id), "role": str(user.role), "tv": user.token_version}

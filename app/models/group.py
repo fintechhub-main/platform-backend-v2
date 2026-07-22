@@ -1,6 +1,6 @@
 import uuid
-from datetime import date
-from sqlalchemy import String, Integer, ForeignKey, Date, Enum as SAEnum, Boolean
+from datetime import date, datetime
+from sqlalchemy import String, Integer, ForeignKey, Date, DateTime, Enum as SAEnum, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
@@ -52,6 +52,11 @@ class Group(Base):
     chat_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     attendance_topic_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     branch_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id", ondelete="SET NULL"), nullable=True, index=True)
+    # Telegram bot orqali o'quvchi ro'yxatdan o'tish havolasi (masalan
+    # https://t.me/fintechhublmsbot?start=<token>). Faqat shu ustunga tegishli
+    # guruhga yozilish uchun ishlatiladi — boshqa hech qanday huquq bermaydi.
+    invite_token: Mapped[str | None] = mapped_column(String(32), unique=True, nullable=True)
+    invite_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     course: Mapped["Course"] = relationship("Course", back_populates="groups")
     branch: Mapped["Branch"] = relationship("Branch", back_populates="groups", lazy="noload")

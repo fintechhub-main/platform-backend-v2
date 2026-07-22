@@ -304,5 +304,18 @@ async def change_password(
         raise HTTPException(status_code=400, detail="Yangi parol kamida 8 ta belgi bo'lishi kerak")
     current_user.password_hash = hash_password(data.new_password)
     current_user.token_version = (current_user.token_version or 1) + 1
+    current_user.must_change_password = False
     await db.commit()
+
+    # Telegram orqali xabar — kimdir parolni bilib olib o'zgartirib qo'ysa,
+    # haqiqiy egasi shu bildirishnomadan bilib qoladi.
+    if current_user.telegram_id:
+        try:
+            from app.services.teacher_bot import tb_send
+            await tb_send(current_user.telegram_id,
+                          "🔐 <b>Parolingiz o'zgartirildi.</b>\n\n"
+                          "Agar buni siz qilmagan bo'lsangiz, darhol administratorga murojaat qiling.")
+        except Exception:
+            pass
+
     return {"ok": True, "message": "Parol muvaffaqiyatli o'zgartirildi"}
