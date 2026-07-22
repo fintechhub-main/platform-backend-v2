@@ -21,20 +21,24 @@ async def my_groups(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    q = (
-        select(Group)
-        .join(GroupStudent, GroupStudent.group_id == Group.id)
-        .options(selectinload(Group.teacher), selectinload(Group.course))
-        .where(GroupStudent.student_id == current_user.id)
-        .order_by(Group.start_date.desc())
+    q = select(Group).options(
+        selectinload(Group.teacher), selectinload(Group.course), selectinload(Group.group_students),
     )
+    if current_user.role in ("teacher", "assistant_teacher"):
+        q = q.where(Group.teacher_id == current_user.id)
+    else:
+        q = q.join(GroupStudent, GroupStudent.group_id == Group.id).where(
+            GroupStudent.student_id == current_user.id
+        )
+    q = q.order_by(Group.start_date.desc())
     result = await db.execute(q)
-    groups = result.scalars().all()
+    groups = result.unique().scalars().all()
     out = []
     for g in groups:
         data = GroupOut.model_validate(g)
         data.teacher_name = g.teacher.full_name if g.teacher else None
         data.course_title = g.course.title if g.course else None
+        data.student_count = len(g.group_students)
         out.append(data)
     return out
 
