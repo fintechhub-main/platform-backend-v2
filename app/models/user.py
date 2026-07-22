@@ -46,6 +46,8 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     token_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False, server_default="1")
     fcm_token: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Telegram chat ID — bot orqali kirganda yoziladi, shaxsiy xabar yuborish uchun
+    telegram_id: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
 
     taught_groups: Mapped[list["Group"]] = relationship("Group", back_populates="teacher", foreign_keys="Group.teacher_id")
     fines: Mapped[list["Fine"]] = relationship("Fine", back_populates="user")
